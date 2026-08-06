@@ -14,11 +14,11 @@ No install step or server is required.
 
 ## Host Online
 
-The included GitHub Pages workflow deploys the static site whenever `main` is pushed.
+GitHub Pages deploys this static site from the repository's `main` branch whenever it is pushed.
 
-1. Create a GitHub repository for this project and push `main`.
-2. In the repository's **Settings > Pages**, set **Source** to **GitHub Actions**.
-3. Wait for the **Deploy GitHub Pages** action to finish, then open the URL shown in that action.
+1. Push `main` to GitHub.
+2. In the repository's **Settings > Pages**, choose **Deploy from a branch**, then select `main` and `/(root)`.
+3. Wait for the Pages build to finish, then open the published URL.
 
 The site needs no server or database. Ownership, Driftsmelt pools, and saved loadouts are stored in each browser's `localStorage`, so your existing local-file data will not automatically appear on the online URL.
 
