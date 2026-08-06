@@ -1,11 +1,11 @@
-import { GAME_DATA } from "./data/game-data.mjs";
-import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterWeapons } from "./catalogue-filters.mjs";
-import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmeltSkillPool } from "./driftsmelt.mjs";
-import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs";
-import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs";
-import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs";
-import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions } from "./skill-utils.mjs";
-import { buildUpgradePlan } from "./upgrade-planner.mjs";
+import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-06-4be9116";
+import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterWeapons } from "./catalogue-filters.mjs?v=2026-08-06-4be9116";
+import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmeltSkillPool } from "./driftsmelt.mjs?v=2026-08-06-4be9116";
+import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs?v=2026-08-06-4be9116";
+import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs?v=2026-08-06-4be9116";
+import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-06-4be9116";
+import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions } from "./skill-utils.mjs?v=2026-08-06-4be9116";
+import { buildUpgradePlan } from "./upgrade-planner.mjs?v=2026-08-06-4be9116";
 import {
   aggregateSkills,
   calculateFinalLoadoutStats,

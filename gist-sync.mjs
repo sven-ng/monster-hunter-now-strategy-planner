@@ -1,4 +1,4 @@
-import { parseProfileExport } from "./profile-transfer.mjs";
+import { parseProfileExport } from "./profile-transfer.mjs?v=2026-08-06-4be9116";
 
 export const PROFILE_GIST_FILENAME = "mhn-field-kit-profile.json";
 const GITHUB_API_ROOT = "https://api.github.com";
