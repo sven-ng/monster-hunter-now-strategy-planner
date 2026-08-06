@@ -55,6 +55,7 @@ button, input, select { font: inherit; }
 .profile-transfer p:not(.eyebrow) { max-width: 70ch; margin: 7px 0 0; color: var(--muted); font-size: 0.78rem; line-height: 1.55; }
 .profile-transfer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: 330px; }
 .profile-transfer-actions .primary-action, .profile-transfer-actions .secondary-action { margin: 0; white-space: nowrap; }
+.profile-import-label { cursor: pointer; }
 .profile-feedback { width: 100%; text-align: right; }
 .profile-feedback[data-state="success"] { color: var(--success); }
 .profile-feedback[data-state="error"] { color: var(--danger); }

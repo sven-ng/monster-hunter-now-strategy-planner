@@ -58,7 +58,6 @@ const elements = {
   collectionStatus: document.querySelector("#collection-status"),
   homeStats: document.querySelector("#home-stats"),
   profileExport: document.querySelector("#profile-export"),
-  profileImport: document.querySelector("#profile-import"),
   profileImportFile: document.querySelector("#profile-import-file"),
   profileFeedback: document.querySelector("#profile-feedback"),
   featuredTarget: document.querySelector("#featured-target"),
@@ -199,7 +198,6 @@ function sourceMonsterOptions(items) {
 
 function wireEvents() {
   elements.profileExport?.addEventListener("click", exportProfile);
-  elements.profileImport?.addEventListener("click", () => elements.profileImportFile?.click());
   elements.profileImportFile?.addEventListener("change", importProfileFile);
 
   elements.targetMonster?.addEventListener("change", (event) => {
