@@ -8,6 +8,7 @@ import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterWea
 import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "../loadouts.mjs";
 import { buildUpgradePlan, getNextGearUpgrade } from "../upgrade-planner.mjs";
 import {
+  aggregateSkills,
   applySuggestedDriftsmeltSkills,
   classifyBuildVsMonster,
   calculateFinalLoadoutStats,
@@ -269,6 +270,35 @@ test("saved loadouts preserve selected active Driftsmelt skills and apply their 
     baseStats.aggregatedSkills.find((skill) => skill.name === "Critical Eye").level + 1,
   );
   assert.ok(stats.criticalEyeBonus > baseStats.criticalEyeBonus);
+});
+
+test("Attack Efficacy Driftsmelt is accepted and increases final raw", () => {
+  const weapon = getGearAtGrade(GAME_DATA.weapons.find((item) => item.id === "greatjagras_gunlance"), 5, 1);
+  const anjanath = GAME_DATA.monsters.find((monster) => monster.id === "anjanath");
+  const driftArmor = getGearAtGrade(GAME_DATA.armor.find((item) => item.id === "almudron_arms"), 8, 5);
+  const [armsWithDriftsmelt] = applySuggestedDriftsmeltSkills({
+    weapon,
+    armor: [driftArmor],
+    targetMonster: anjanath,
+    driftsmeltSkillPools: { [driftArmor.id]: ["Attack Efficacy"] },
+  });
+  const stats = calculateFinalLoadoutStats({ weapon, armor: [armsWithDriftsmelt] });
+
+  assert.deepEqual(normalizeDriftsmeltSkillPool(["Attack Efficacy"]), ["Attack Efficacy"]);
+  assert.deepEqual(armsWithDriftsmelt.driftsmeltSkills, ["Attack Efficacy"]);
+  assert.equal(stats.attackEfficacyLevel, 1);
+  assert.equal(stats.rawAttack, 430);
+});
+
+test("Regios Vambraces normalize Powerhouse to Attack Efficacy and keep Attack Boost by grade", () => {
+  const weapon = getGearAtGrade(GAME_DATA.weapons.find((item) => item.id === "greatjagras_gunlance"), 5, 1);
+  const regiosArms = getGearAtGrade(GAME_DATA.armor.find((item) => item.id === "seregios_arms"), 6, 1);
+  const stats = calculateFinalLoadoutStats({ weapon, armor: [regiosArms] });
+
+  assert.equal(stats.attackEfficacyLevel, 1);
+  assert.equal(stats.rawSkillBonus, 50);
+  assert.equal(stats.rawAttack, 485);
+  assert.deepEqual(aggregateSkills([regiosArms]).map((skill) => skill.name), ["Attack Boost", "Attack Efficacy"]);
 });
 
 test("final loadout stats apply raw, affinity, critical, and matching-element skills", () => {

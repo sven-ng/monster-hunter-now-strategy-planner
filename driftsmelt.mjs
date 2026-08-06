@@ -1,5 +1,6 @@
 export const DRIFTSMELT_SKILLS = [
   "Attack Boost",
+  "Attack Efficacy",
   "Critical Eye",
   "Weakness Exploit",
   "Critical Boost",

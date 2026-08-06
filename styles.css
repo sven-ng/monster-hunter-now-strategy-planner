@@ -68,6 +68,8 @@ button, input, select { font: inherit; }
 .feature-tags, .skill-chips, .drop-preview { display: flex; flex-wrap: wrap; gap: 7px; }
 .feature-tags > span, .skill-chips span, .status-pill, .grade-label { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 9px; font-size: 0.7rem; font-weight: 700; }
 .feature-tags > span, .skill-chips span { color: #cceee7; border: 1px solid rgba(118, 228, 209, 0.18); background: rgba(118, 228, 209, 0.09); }
+.skill-chip { display: inline-flex; align-items: center; border: 1px solid rgba(118, 228, 209, 0.18); border-radius: 999px; padding: 6px 9px; color: #cceee7; background: rgba(118, 228, 209, 0.09); font-size: 0.7rem; font-weight: 700; cursor: pointer; }
+.skill-chip:hover, .skill-chip:focus-visible { border-color: rgba(118, 228, 209, 0.52); background: rgba(118, 228, 209, 0.16); outline: none; }
 .primary-action, .card-action { margin-top: 18px; border: 1px solid var(--aqua); border-radius: 10px; padding: 10px 13px; color: #062523; background: var(--aqua); cursor: pointer; font-size: 0.78rem; font-weight: 800; }
 .primary-action:hover, .card-action:hover { background: #b7faed; }
 
@@ -217,6 +219,15 @@ button.monster-focus-card:hover, button.monster-focus-card:focus-visible { borde
 .loadout-list li > span { color: var(--aqua); font-size: 0.62rem; font-weight: 800; text-transform: uppercase; }
 .loadout-icon { width: 23px; height: 23px; object-fit: contain; }
 .build-card > .skill-chips { padding: 12px 16px 16px; }
+.skill-dialog[hidden] { display: none; }
+.skill-dialog { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; }
+.skill-dialog-backdrop { position: absolute; inset: 0; background: rgba(4, 10, 14, 0.72); backdrop-filter: blur(6px); }
+.skill-dialog-panel { position: relative; width: min(520px, calc(100% - 24px)); padding: 24px; border: 1px solid rgba(118, 228, 209, 0.3); border-radius: 20px; background: linear-gradient(145deg, rgba(16, 44, 53, 0.98), rgba(6, 19, 23, 0.98)); box-shadow: var(--shadow); }
+.skill-dialog-panel h2 { margin: 0; font-family: "Iowan Old Style", "Palatino Linotype", serif; font-size: 2rem; letter-spacing: -0.03em; }
+.skill-dialog-close { position: absolute; top: 14px; right: 14px; border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; color: var(--muted); background: rgba(2, 15, 19, 0.56); cursor: pointer; font-size: 0.68rem; font-weight: 700; }
+.skill-dialog-close:hover { border-color: var(--aqua); color: var(--aqua); }
+.skill-dialog-level { margin: 12px 0 0; color: var(--aqua); font-size: 0.8rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.skill-dialog-description { margin: 12px 0 0; color: #d7ebe9; font-size: 0.92rem; line-height: 1.65; }
 
 .catalogue-toolbar { display: grid; grid-template-columns: minmax(220px, 1.45fr) repeat(3, minmax(150px, 0.8fr)) repeat(2, auto); gap: 10px; align-items: end; margin-bottom: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 17px; background: rgba(8, 27, 33, 0.68); }
 .catalogue-toolbar label { display: grid; gap: 6px; color: #cde8e5; font-size: 0.67rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }

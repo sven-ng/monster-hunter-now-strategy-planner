@@ -1,5 +1,6 @@
 import { GAME_DATA } from "./data/game-data.mjs";
 import { applyDriftsmeltSkills } from "./driftsmelt.mjs";
+import { canonicalSkillName } from "./skill-utils.mjs";
 
 const ELEMENT_SKILL_NAMES = new Set([
   "Fire Attack",
@@ -28,6 +29,7 @@ const ATTACK_SKILL_SCORES = {
 const ELEMENT_DAMAGE_TYPES = new Set(["Fire", "Water", "Thunder", "Ice", "Dragon"]);
 const ELEMENT_ATTACK_BONUSES = [0, 50, 100, 200, 350, 500];
 const ATTACK_BOOST_BONUSES = [0, 50, 100, 150, 200, 300];
+const ATTACK_EFFICACY_MULTIPLIERS = [0, 0.1, 0.15, 0.25];
 const CRITICAL_EYE_BONUSES = [0, 10, 15, 20, 30, 40];
 const WEAKNESS_EXPLOIT_BONUSES = [0, 20, 25, 30, 40, 50];
 const CRITICAL_MULTIPLIERS = [1.25, 1.3, 1.35, 1.4, 1.45, 1.5];
@@ -106,8 +108,9 @@ export function aggregateSkills(gearItems) {
 
   for (const item of gearItems) {
     for (const skill of item.skills ?? []) {
-      const existing = totals.get(skill.name) ?? {
-        name: skill.name,
+      const normalizedName = canonicalSkillName(skill.name);
+      const existing = totals.get(normalizedName) ?? {
+        name: normalizedName,
         level: 0,
         effects: [],
       };
@@ -116,7 +119,7 @@ export function aggregateSkills(gearItems) {
       if (skill.effect) {
         existing.effects.push(skill.effect);
       }
-      totals.set(skill.name, existing);
+      totals.set(normalizedName, existing);
     }
   }
 
@@ -125,8 +128,12 @@ export function aggregateSkills(gearItems) {
 
 export function calculateWeaponPower(weapon, aggregatedSkills, targetMonster) {
   const baseAttack = weapon.attack;
-  const affinityAttack = Math.round(baseAttack * (weapon.affinity / 100) * 0.25);
   const skillMap = new Map(aggregatedSkills.map((skill) => [skill.name, skill.level]));
+  const attackBoostLevel = skillMap.get("Attack Boost") ?? 0;
+  const attackEfficacyLevel = skillMap.get("Attack Efficacy") ?? 0;
+  const rawAttack = Math.round((baseAttack + bonusAt(ATTACK_BOOST_BONUSES, attackBoostLevel))
+    * (1 + bonusAt(ATTACK_EFFICACY_MULTIPLIERS, attackEfficacyLevel)));
+  const affinityAttack = Math.round(rawAttack * (weapon.affinity / 100) * 0.25);
 
   let elementValue = weapon.element?.value ?? 0;
   let weaknessBonus = 0;
@@ -149,11 +156,11 @@ export function calculateWeaponPower(weapon, aggregatedSkills, targetMonster) {
   }
 
   return {
-    attackScore: baseAttack + affinityAttack,
+    attackScore: rawAttack + affinityAttack,
     elementScore: elementValue,
     weaknessBonus,
     skillScore,
-    total: baseAttack + affinityAttack + elementValue + weaknessBonus + skillScore,
+    total: rawAttack + affinityAttack + elementValue + weaknessBonus + skillScore,
   };
 }
 
@@ -161,15 +168,17 @@ export function calculateFinalLoadoutStats(build, { monster = null, assumeWeakPo
   const aggregatedSkills = aggregateSkills([build.weapon, ...build.armor]);
   const skillMap = new Map(aggregatedSkills.map((skill) => [skill.name, skill.level]));
   const attackBoostLevel = skillMap.get("Attack Boost") ?? 0;
+  const attackEfficacyLevel = skillMap.get("Attack Efficacy") ?? 0;
   const criticalEyeLevel = skillMap.get("Critical Eye") ?? 0;
   const weaknessExploitLevel = skillMap.get("Weakness Exploit") ?? 0;
   const criticalBoostLevel = skillMap.get("Critical Boost") ?? 0;
   const rawSkillBonus = bonusAt(ATTACK_BOOST_BONUSES, attackBoostLevel);
+  const attackEfficacyMultiplier = bonusAt(ATTACK_EFFICACY_MULTIPLIERS, attackEfficacyLevel);
   const criticalEyeBonus = bonusAt(CRITICAL_EYE_BONUSES, criticalEyeLevel);
   const weaknessExploitBonus = assumeWeakPoint ? bonusAt(WEAKNESS_EXPLOIT_BONUSES, weaknessExploitLevel) : 0;
   const affinity = clamp(build.weapon.affinity + criticalEyeBonus + weaknessExploitBonus, -100, 100);
   const criticalMultiplier = bonusAt(CRITICAL_MULTIPLIERS, criticalBoostLevel);
-  const rawAttack = build.weapon.attack + rawSkillBonus;
+  const rawAttack = Math.round((build.weapon.attack + rawSkillBonus) * (1 + attackEfficacyMultiplier));
   const expectedRaw = rawAttack * expectedAffinityMultiplier(affinity, criticalMultiplier);
   const weaponElement = build.weapon.element;
   const matchingElement = Boolean(monster && weaponElement && ELEMENT_DAMAGE_TYPES.has(weaponElement.type)
@@ -185,6 +194,7 @@ export function calculateFinalLoadoutStats(build, { monster = null, assumeWeakPo
   const defense = build.armor.reduce((total, piece) => total + piece.defense, 0);
   const modeledSkillNames = new Set([
     "Attack Boost",
+    "Attack Efficacy",
     "Critical Eye",
     "Weakness Exploit",
     "Critical Boost",
@@ -195,6 +205,8 @@ export function calculateFinalLoadoutStats(build, { monster = null, assumeWeakPo
     aggregatedSkills,
     rawAttack,
     rawSkillBonus,
+    attackEfficacyLevel,
+    attackEfficacyMultiplier,
     baseAffinity: build.weapon.affinity,
     affinity,
     criticalEyeBonus,
@@ -408,6 +420,7 @@ function rankArmor(armor, ownedGearIds) {
 function armorOffensePotential(piece) {
   return piece.defense * 0.25 + (piece.skills ?? []).reduce((total, skill) => {
     if (skill.name === "Attack Boost") return total + bonusAt(ATTACK_BOOST_BONUSES, skill.level);
+    if (skill.name === "Attack Efficacy") return total + bonusAt(ATTACK_EFFICACY_MULTIPLIERS, skill.level) * 900;
     if (ELEMENT_SKILL_NAMES.has(skill.name)) return total + bonusAt(ELEMENT_ATTACK_BONUSES, skill.level) * 0.5;
     if (skill.name === "Critical Eye") return total + bonusAt(CRITICAL_EYE_BONUSES, skill.level) * 4;
     if (skill.name === "Weakness Exploit") return total + bonusAt(WEAKNESS_EXPLOIT_BONUSES, skill.level) * 4;
@@ -419,6 +432,7 @@ function armorOffensePotential(piece) {
 function suggestedDriftsmeltScore(skill, matchingElement, assumeWeakPoint) {
   if (skill === matchingElement) return 140;
   if (skill === "Attack Boost") return 120;
+  if (skill === "Attack Efficacy") return 110;
   if (skill === "Critical Eye") return 70;
   if (skill === "Weakness Exploit") return assumeWeakPoint ? 65 : 20;
   if (skill === "Critical Boost") return 45;

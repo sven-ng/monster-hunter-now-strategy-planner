@@ -1,3 +1,5 @@
+import { canonicalSkillName } from "./skill-utils.mjs";
+
 export function filterWeapons(items, filters, favorites = new Set(), forgedGear = new Set()) {
   return items.filter((weapon) => {
     const query = filters.query?.toLowerCase() ?? "";
@@ -14,9 +16,9 @@ export function filterWeapons(items, filters, favorites = new Set(), forgedGear 
 export function filterArmor(items, filters, favorites = new Set(), forgedGear = new Set()) {
   return items.filter((piece) => {
     const query = filters.query?.toLowerCase() ?? "";
-    const searchText = `${piece.name} ${piece.part} ${piece.skills.map((skill) => skill.name).join(" ")} ${piece.sourceMonsterId ?? ""}`.toLowerCase();
+    const searchText = `${piece.name} ${piece.part} ${piece.skills.map((skill) => canonicalSkillName(skill.name)).join(" ")} ${piece.sourceMonsterId ?? ""}`.toLowerCase();
     return (!query || searchText.includes(query))
-      && (filters.skill === "all" || piece.skills.some((skill) => skill.name === filters.skill))
+      && (filters.skill === "all" || piece.skills.some((skill) => canonicalSkillName(skill.name) === filters.skill))
       && (filters.monster === "all" || piece.sourceMonsterId === filters.monster)
       && (filters.driftsmeltSlots === "all" || driftsmeltSlotCount(piece) === Number(filters.driftsmeltSlots))
       && (!filters.favoritesOnly || favorites.has(piece.id))

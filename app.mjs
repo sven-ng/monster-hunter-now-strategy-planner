@@ -3,6 +3,7 @@ import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterWea
 import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmeltSkillPool } from "./driftsmelt.mjs";
 import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs";
 import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs";
+import { canonicalSkillName, normalizeSkills, skillDescription } from "./skill-utils.mjs";
 import { buildUpgradePlan } from "./upgrade-planner.mjs";
 import {
   aggregateSkills,
@@ -170,7 +171,7 @@ function populateCatalogueFilters() {
   populateCatalogueSelect(elements.weaponTypeCatalogueFilter, uniqueValues(GAME_DATA.weapons.map((weapon) => weapon.type)), "All weapon types");
   populateCatalogueSelect(elements.weaponElementCatalogueFilter, uniqueValues(GAME_DATA.weapons.map((weapon) => weapon.element?.type ?? "None")), "All elements");
   populateCatalogueSelect(elements.weaponMonsterCatalogueFilter, sourceMonsterOptions(GAME_DATA.weapons), "All source monsters");
-  populateCatalogueSelect(elements.armorSkillCatalogueFilter, uniqueValues(GAME_DATA.armor.flatMap((piece) => piece.skills.map((skill) => skill.name))), "All skills");
+  populateCatalogueSelect(elements.armorSkillCatalogueFilter, uniqueValues(GAME_DATA.armor.flatMap((piece) => piece.skills.map((skill) => canonicalSkillName(skill.name)))), "All skills");
   populateCatalogueSelect(elements.armorMonsterCatalogueFilter, sourceMonsterOptions(GAME_DATA.armor), "All source monsters");
   populateCatalogueSelect(
     elements.armorDriftsmeltCatalogueFilter,
@@ -197,6 +198,7 @@ function sourceMonsterOptions(items) {
 }
 
 function wireEvents() {
+  ensureSkillDialog();
   elements.profileExport?.addEventListener("click", exportProfile);
   elements.profileImportFile?.addEventListener("change", importProfileFile);
 
@@ -341,6 +343,15 @@ function wireEvents() {
     if (!(event.target instanceof Element)) {
       return;
     }
+    if (event.target.closest("[data-skill-close]")) {
+      closeSkillDialog();
+      return;
+    }
+    const skillChip = event.target.closest("[data-skill-chip]");
+    if (skillChip instanceof HTMLButtonElement) {
+      openSkillDialog(skillChip.dataset.skillChip, Number(skillChip.dataset.skillLevel), skillChip.dataset.skillEffect ?? "");
+      return;
+    }
     const button = event.target.closest("[data-plan-monster], [data-loadout-action], [data-favorite-toggle], [data-save-suggestion], [data-driftsmelt-pool-add], [data-driftsmelt-pool-remove], [data-driftsmelt-suggestion]");
     if (!(button instanceof HTMLButtonElement)) {
       return;
@@ -424,6 +435,12 @@ function wireEvents() {
       state.openDriftsmeltPoolIds.delete(panel.dataset.driftsmeltPool);
     }
   }, true);
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeSkillDialog();
+    }
+  });
 }
 
 function wireSearch(input, key, renderer) {
@@ -886,11 +903,11 @@ function loadoutLibraryCard(loadout) {
 
 function savedLoadoutSummary(loadout, build, counts, finalStats) {
   const affinityLabel = `${finalStats.baseAffinity >= 0 ? "+" : ""}${finalStats.baseAffinity}% base${finalStats.affinity !== finalStats.baseAffinity ? ` -> ${finalStats.affinity >= 0 ? "+" : ""}${finalStats.affinity}%` : ""}`;
-  const elementLabel = finalStats.weaponElement
-    ? `${finalStats.weaponElement.type} ${finalStats.weaponElement.value}${finalStats.elementalSkillBonus ? ` + ${finalStats.elementalSkillBonus}` : ""}`
-    : "No elemental stat";
+  const rawDetail = formatRawStatDetail(build.weapon.attack, finalStats);
+  const elementSummary = formatElementStatSummary(finalStats);
   const assumptions = [
     finalStats.rawSkillBonus ? `Attack Boost +${finalStats.rawSkillBonus}` : null,
+    finalStats.attackEfficacyLevel ? `Attack Efficacy +${Math.round(finalStats.attackEfficacyMultiplier * 100)}%` : null,
     finalStats.criticalEyeBonus ? `Critical Eye +${finalStats.criticalEyeBonus}%` : null,
     finalStats.weaknessExploitBonus ? `Weakness Exploit +${finalStats.weaknessExploitBonus}%` : null,
   ].filter(Boolean);
@@ -900,7 +917,7 @@ function savedLoadoutSummary(loadout, build, counts, finalStats) {
     : "No Driftsmelt skills recorded for this saved loadout.";
   return `
     <div class="loadout-summary-gear">${imageMarkup(build.weapon, "summary-weapon-image")}<div><span class="type-label">Reviewing ${loadout.name}</span><h2>${build.weapon.name}</h2><p>G${build.weapon.grade} L${build.weapon.level} · exact saved gear stats</p></div></div>
-    <div class="final-stat-grid"><span><small>Final raw</small><b>${finalStats.rawAttack}</b><em>${finalStats.rawSkillBonus ? `base ${build.weapon.attack} + ${finalStats.rawSkillBonus}` : "no raw bonus"}</em></span><span><small>Affinity</small><b>${finalStats.affinity >= 0 ? "+" : ""}${finalStats.affinity}%</b><em>${affinityLabel}</em></span><span><small>Element</small><b>${elementLabel}</b><em>applies only to matching weakness</em></span><span><small>Defense</small><b>${finalStats.defense}</b><em>five armor pieces</em></span></div>
+    <div class="final-stat-grid"><span><small>Final raw</small><b>${finalStats.rawAttack}</b><em>${rawDetail}</em></span><span><small>Affinity</small><b>${finalStats.affinity >= 0 ? "+" : ""}${finalStats.affinity}%</b><em>${affinityLabel}</em></span><span><small>Final element</small><b>${elementSummary.value}</b><em>${elementSummary.detail}</em></span><span><small>Defense</small><b>${finalStats.defense}</b><em>five armor pieces</em></span></div>
     <p class="damage-assumptions">${assumptions.length ? `Applied: ${assumptions.join(" · ")}. ` : "No always-on offensive skill bonus found. "}Conditional, weapon-specific, status, and timing skills remain listed but are not converted into damage.</p>
     <p class="damage-assumptions">${driftsmeltLabel}</p>
     <p class="damage-assumptions">${loadout.origin === "suggested" ? "Suggested upgrade targets keep their saved Grade and Level." : "Manual loadouts automatically use your latest forged Grade and Level."}</p>
@@ -1052,8 +1069,11 @@ function materialCard(material) {
 function buildCard(build, index, { saved = false } = {}) {
   const effectiveness = classifyBuildVsMonster(build, build.targetMonster, build.targetStars);
   const damage = build.damage ?? calculateFinalLoadoutStats(build, { monster: build.targetMonster, assumeWeakPoint: state.assumeWeakPoint });
+  const rawBreakdown = formatRawBreakdown(build.weapon.attack, damage);
+  const elementBreakdown = formatElementBreakdown(damage);
   const appliedSkills = [
     damage.rawSkillBonus ? `Attack Boost +${damage.rawSkillBonus}` : null,
+    damage.attackEfficacyLevel ? `Attack Efficacy +${Math.round(damage.attackEfficacyMultiplier * 100)}%` : null,
     damage.elementalSkillBonus && damage.matchingElement ? `${damage.weaponElement.type} Attack +${damage.elementalSkillBonus}` : null,
     damage.criticalEyeBonus ? `Critical Eye +${damage.criticalEyeBonus}%` : null,
     damage.weaknessExploitBonus ? `Weakness Exploit +${damage.weaknessExploitBonus}%` : null,
@@ -1066,14 +1086,65 @@ function buildCard(build, index, { saved = false } = {}) {
       <div class="build-hero">${imageMarkup(build.weapon, "build-weapon-image")}
         <div><span class="type-label">${saved ? (index === 0 ? "Best saved loadout" : `Saved loadout ${index + 1}`) : (index === 0 ? "Top suggested build" : `Suggested build ${index + 1}`)}</span><h2>${saved ? build.savedLoadoutName : build.weapon.name}</h2><p>${saved ? `${build.weapon.name} · ` : ""}${build.weapon.type} · Grade ${build.weapon.grade} / L${build.weapon.level}</p></div>
       </div>
-      <div class="build-score"><span class="status-pill ${effectiveness.tier}">${effectiveness.label}</span><div class="damage-total"><small>Estimated damage</small><strong>${damage.referenceDamage}</strong><em>per reference hit</em></div><div class="damage-breakdown"><span>${damage.rawAttack} raw${damage.rawSkillBonus ? ` (+${damage.rawSkillBonus})` : ""}</span><span>${damage.matchingElement ? `+ ${damage.effectiveElement} ${damage.weaponElement.type}` : "No active element"}</span><span>${damage.affinity >= 0 ? "+" : ""}${damage.affinity}% affinity</span></div></div>
+      <div class="build-score"><span class="status-pill ${effectiveness.tier}">${effectiveness.label}</span><div class="damage-total"><small>Estimated damage</small><strong>${damage.referenceDamage}</strong><em>per reference hit</em></div><div class="damage-breakdown"><span>${rawBreakdown}</span><span>${elementBreakdown}</span><span>${damage.affinity >= 0 ? "+" : ""}${damage.affinity}% affinity</span></div></div>
       <p class="build-calculation">${appliedSkills.length ? `Included: ${appliedSkills.join(" · ")}.` : "Included: weapon raw, affinity, and matching element."}${omittedSkills ? ` Not converted: ${omittedSkills}.` : ""}</p>
       ${activeDriftsmelt.length ? `<p class="build-calculation">Active Driftsmelt: ${activeDriftsmelt.map((skill) => `${skill} Lv.1`).join(" · ")}.</p>` : ""}
       ${saved ? "" : `<button class="save-suggestion" type="button" data-save-suggestion="${index}">Save as my upgrade target</button>`}
       <div class="loadout-list"><p>Five-piece armor</p><ul>${build.armor.map((piece) => `<li>${imageMarkup(piece, "loadout-icon")}<span>${piece.part}</span>${piece.name}</li>`).join("")}</ul></div>
-      <div class="skill-chips">${aggregateSkills([build.weapon, ...build.armor]).slice(0, 5).map((skill) => `<span>${skill.name} Lv.${skill.level}</span>`).join("")}</div>
+      <div class="skill-chips">${aggregateSkills([build.weapon, ...build.armor]).slice(0, 5).map((skill) => skillChipMarkup(skill)).join("")}</div>
     </article>
   `;
+}
+
+function formatRawStatDetail(baseAttack, stats) {
+  const parts = [`base ${baseAttack}`];
+  if (stats.rawSkillBonus) {
+    parts.push(`+ ${stats.rawSkillBonus}`);
+  }
+  if (stats.attackEfficacyLevel) {
+    parts.push(`x ${formatMultiplier(stats.attackEfficacyMultiplier)}`);
+  }
+  return parts.join(" ");
+}
+
+function formatElementStatSummary(stats) {
+  if (!stats.weaponElement) {
+    return { value: "None", detail: "no elemental stat" };
+  }
+  const finalElement = stats.potentialElement;
+  const parts = [`base ${stats.weaponElement.value}`];
+  if (stats.elementalSkillBonus) {
+    parts.push(`+ ${stats.elementalSkillBonus}`);
+  }
+  parts.push(stats.matchingElement ? "active vs matching weakness" : "active only vs matching weakness");
+  return {
+    value: `${stats.weaponElement.type} ${finalElement}`,
+    detail: parts.join(" "),
+  };
+}
+
+function formatRawBreakdown(baseAttack, stats) {
+  const detail = [];
+  if (stats.rawSkillBonus) {
+    detail.push(`+${stats.rawSkillBonus}`);
+  }
+  if (stats.attackEfficacyLevel) {
+    detail.push(`x${formatMultiplier(stats.attackEfficacyMultiplier)}`);
+  }
+  return `${stats.rawAttack} raw${detail.length ? ` (${detail.join(" ")})` : ""}`;
+}
+
+function formatElementBreakdown(stats) {
+  if (!stats.weaponElement) {
+    return "No element";
+  }
+  const value = stats.matchingElement ? stats.effectiveElement : stats.potentialElement;
+  const suffix = stats.matchingElement ? "active" : "standby";
+  return `${stats.weaponElement.type} ${value} ${suffix}`;
+}
+
+function formatMultiplier(value) {
+  return (1 + value).toFixed(2).replace(/\.00$/, "");
 }
 
 function monsterFeature(monster, build) {
@@ -1098,6 +1169,12 @@ function compactMonsterCard(monster) {
 
 function imageMarkup(item, className) {
   return item.imageUrl ? `<img class="${className}" src="${item.imageUrl}" alt="${item.name}" loading="lazy" />` : `<div class="${className} image-fallback">${item.name.slice(0, 2)}</div>`;
+}
+
+function skillChipMarkup(skill) {
+  const name = canonicalSkillName(skill.name);
+  const effect = skillDescription(name, skill.level, skill.effects?.[0] ?? skill.effect ?? "");
+  return `<button class="skill-chip" type="button" data-skill-chip="${escapeAttribute(name)}" data-skill-level="${skill.level}" data-skill-effect="${escapeAttribute(effect)}">${name} Lv.${skill.level}</button>`;
 }
 
 function dropToken(dropId) {
@@ -1125,7 +1202,48 @@ function favoriteToggle(gear) {
 
 function skillChips(skills) {
   if (!skills.length) return '<p class="availability-note">No listed equipment skill.</p>';
-  return `<div class="skill-chips">${skills.map((skill) => `<span>${skill.name} Lv.${skill.level}</span>`).join("")}</div>`;
+  return `<div class="skill-chips">${normalizeSkills(skills).map((skill) => skillChipMarkup(skill)).join("")}</div>`;
+}
+
+function ensureSkillDialog() {
+  if (document.querySelector("#skill-dialog")) return;
+  document.body.insertAdjacentHTML("beforeend", `
+    <div id="skill-dialog" class="skill-dialog" hidden>
+      <div class="skill-dialog-backdrop" data-skill-close="true"></div>
+      <div class="skill-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="skill-dialog-title">
+        <button class="skill-dialog-close" type="button" data-skill-close="true" aria-label="Close skill details">Close</button>
+        <p class="eyebrow">Skill details</p>
+        <h2 id="skill-dialog-title"></h2>
+        <p id="skill-dialog-level" class="skill-dialog-level"></p>
+        <p id="skill-dialog-description" class="skill-dialog-description"></p>
+      </div>
+    </div>
+  `);
+}
+
+function openSkillDialog(name, level, fallbackEffect) {
+  const dialog = document.querySelector("#skill-dialog");
+  if (!dialog) return;
+  const canonicalName = canonicalSkillName(name);
+  dialog.querySelector("#skill-dialog-title").textContent = canonicalName;
+  dialog.querySelector("#skill-dialog-level").textContent = `Current level shown: Lv.${level || 1}`;
+  dialog.querySelector("#skill-dialog-description").textContent = skillDescription(canonicalName, level, fallbackEffect);
+  dialog.hidden = false;
+}
+
+function closeSkillDialog() {
+  const dialog = document.querySelector("#skill-dialog");
+  if (dialog) {
+    dialog.hidden = true;
+  }
+}
+
+function escapeAttribute(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function filterBySearch(items, search, getText) {
