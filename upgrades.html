@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Upgrade Plan | Field Kit</title><link rel="stylesheet" href="styles.css" /></head>
+  <body data-page="upgrades">
+    <div class="app-shell">
+      <header class="topbar"><a class="brand" href="index.html"><span class="brand-mark">MHN</span><span>Field Kit</span></a><nav class="top-nav" aria-label="Main navigation"><a href="index.html">Home</a><a href="planner.html">Hunt Planner</a><a href="loadouts.html">Loadouts</a><a href="upgrades.html">Upgrade Plan</a><a href="weapons.html">Weapons</a><a href="armor.html">Armor</a><a href="monsters.html">Monsters</a><a href="materials.html">Materials</a></nav><p id="collection-status" class="collection-status"></p></header>
+      <main class="page upgrades-page">
+        <div class="page-heading"><p class="eyebrow">Upgrade roadmap</p><h1>Know what to forge next.</h1><p>Choose a saved build and target hunt. The roadmap compares each next Grade or Level step, then groups the most valuable steps by the monster series to focus.</p></div>
+        <section class="upgrade-controls"><label>Saved loadout<select id="upgrade-loadout"></select></label><label>Target monster<select id="upgrade-target"></select></label><label>Target difficulty<select id="upgrade-stars"></select></label></section>
+        <section id="upgrade-summary" class="upgrade-summary"></section>
+        <section class="section-block"><div class="section-heading"><div><p class="eyebrow">Next upgrades</p><h2>Upgrade in this order</h2></div><span class="data-note">One immediate upgrade per gear piece</span></div><div id="upgrade-priorities" class="upgrade-priorities"></div></section>
+        <section class="section-block"><div class="section-heading"><div><p class="eyebrow">Farming focus</p><h2>Hunt these monster series next</h2></div><span class="data-note">Source-series guidance, not an exact forge recipe</span></div><div id="upgrade-monster-focus" class="monster-focus-grid"></div></section>
+      </main>
+    </div>
+    <script type="module" src="app.mjs"></script>
+  </body>
+</html>

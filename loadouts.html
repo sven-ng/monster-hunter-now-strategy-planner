@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Loadout Library | Field Kit</title><link rel="stylesheet" href="styles.css" /></head>
+  <body data-page="loadouts">
+    <div class="app-shell">
+      <header class="topbar"><a class="brand" href="index.html"><span class="brand-mark">MHN</span><span>Field Kit</span></a><nav class="top-nav" aria-label="Main navigation"><a href="index.html">Home</a><a href="planner.html">Hunt Planner</a><a href="loadouts.html">Loadouts</a><a href="upgrades.html">Upgrade Plan</a><a href="weapons.html">Weapons</a><a href="armor.html">Armor</a><a href="monsters.html">Monsters</a><a href="materials.html">Materials</a></nav><p id="collection-status" class="collection-status"></p></header>
+      <main class="page loadout-library-page">
+        <div class="page-heading loadout-page-heading"><div><p class="eyebrow">My saved builds</p><h1>Loadout library</h1><p>See every weapon, armor piece, Grade, and active Driftsmelt at a glance. Edit a build without creating a duplicate.</p></div><a class="primary-action" href="loadout-editor.html">Create loadout</a></div>
+        <nav class="loadout-subnav" aria-label="Loadout sections"><a class="active" href="loadouts.html">Library</a><a href="loadout-editor.html">Build editor</a></nav>
+        <section class="section-block"><div class="section-heading"><div><p class="eyebrow">Saved builds</p><h2>Your complete sets</h2></div><span class="data-note">Saved only in this browser</span></div><div id="saved-loadouts" class="loadout-library-grid"></div></section>
+      </main>
+    </div>
+    <script type="module" src="app.mjs"></script>
+  </body>
+</html>

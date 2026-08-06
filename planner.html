@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Hunt Planner | Field Kit</title><link rel="stylesheet" href="styles.css" /></head>
+  <body data-page="planner">
+    <div class="app-shell">
+      <header class="topbar"><a class="brand" href="index.html"><span class="brand-mark">MHN</span><span>Field Kit</span></a><nav class="top-nav" aria-label="Main navigation"><a href="index.html">Home</a><a href="planner.html">Hunt Planner</a><a href="loadouts.html">Loadouts</a><a href="upgrades.html">Upgrade Plan</a><a href="weapons.html">Weapons</a><a href="armor.html">Armor</a><a href="monsters.html">Monsters</a><a href="materials.html">Materials</a></nav><p id="collection-status" class="collection-status"></p></header>
+      <main class="page planner-page">
+        <div class="page-heading"><p class="eyebrow">Hunt Planner</p><h1>Build for one monster at a time.</h1><p>Select the monster's star level and your forged gear grades before trusting a hunt recommendation.</p></div>
+        <section class="planner-layout"><aside class="planner-controls"><label>Target monster<select id="target-monster"></select></label><label>Target difficulty<select id="target-stars"></select></label><label>Weapon type<select id="weapon-type-filter"><option value="all">All weapon types</option></select></label><label class="check-row"><input id="owned-only" type="checkbox" checked />Use only my forged gear</label><label class="check-row"><input id="planner-weak-point" type="checkbox" />Assume weak-point hit</label><p>An 8-star target has a Grade 7 baseline. Builds are ranked by estimated reference damage, including supported skills. Weak-point mode enables Weakness Exploit only; hit-zone multipliers are not modeled.</p></aside><section id="planner-brief" class="feature-panel compact-feature"></section></section>
+        <section class="section-block"><div class="section-heading"><div><p class="eyebrow">Your saved loadouts</p><h2>How your builds perform here</h2></div><span class="data-note">Exact saved Grade and Level values</span></div><div id="planner-saved-loadouts" class="build-grid saved-plan-grid"></div></section>
+        <section class="section-block"><div class="section-heading"><div><p class="eyebrow">Suggested sets</p><h2>Highest estimated damage first</h2></div><span class="data-note">Reference hit, not a full damage simulator</span></div><p id="planner-feedback" class="planner-feedback" aria-live="polite"></p><div id="recommendations" class="build-grid"></div></section>
+      </main>
+    </div>
+    <script type="module" src="app.mjs"></script>
+  </body>
+</html>

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Field Kit | Monster Hunter Now</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-page="home">
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="index.html"><span class="brand-mark">MHN</span><span>Field Kit</span></a>
+        <nav class="top-nav" aria-label="Main navigation"><a href="index.html">Home</a><a href="planner.html">Hunt Planner</a><a href="loadouts.html">Loadouts</a><a href="upgrades.html">Upgrade Plan</a><a href="weapons.html">Weapons</a><a href="armor.html">Armor</a><a href="monsters.html">Monsters</a><a href="materials.html">Materials</a></nav>
+        <p id="collection-status" class="collection-status"></p>
+      </header>
+      <main class="page home-page">
+        <section class="welcome"><div><p class="eyebrow">Monster Hunter Now companion</p><h1>Know your next<br /><em>best hunt.</em></h1><p>One clear place to plan a hunt, save your real loadouts, map your next upgrades, track forged equipment, or browse the field guide.</p></div><div class="home-actions"><a href="planner.html">Plan a hunt <span>PL</span></a><a href="loadouts.html">Review loadouts <span>LD</span></a><a href="upgrades.html">Plan upgrades <span>UP</span></a><a href="weapons.html">Browse forge <span>WG</span></a><a href="monsters.html">Explore monsters <span>MG</span></a></div></section>
+        <section id="home-stats" class="stats-grid" aria-label="Collection summary"></section>
+        <section class="feature-panel" id="featured-target"></section>
+        <section class="section-block"><div class="section-heading"><p class="eyebrow">Elemental opportunities</p><h2>Strong matchups in your field kit</h2><a href="planner.html">See full planner</a></div><div id="home-outlook" class="outlook-grid"></div></section>
+      </main>
+    </div>
+    <script type="module" src="app.mjs"></script>
+  </body>
+</html>
