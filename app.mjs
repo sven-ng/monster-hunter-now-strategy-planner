@@ -3,7 +3,8 @@ import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterWea
 import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmeltSkillPool } from "./driftsmelt.mjs";
 import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs";
 import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs";
-import { canonicalSkillName, normalizeSkills, skillDescription } from "./skill-utils.mjs";
+import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs";
+import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions } from "./skill-utils.mjs";
 import { buildUpgradePlan } from "./upgrade-planner.mjs";
 import {
   aggregateSkills,
@@ -25,9 +26,12 @@ const TARGET_STARS_STORAGE_KEY = "mhnow-strategy-planner-target-stars";
 const LOADOUTS_STORAGE_KEY = "mhnow-strategy-planner-saved-loadouts";
 const FAVORITES_STORAGE_KEY = "mhnow-strategy-planner-favorite-gear";
 const DRIFTSMELT_STORAGE_KEY = "mhnow-strategy-planner-driftsmelt-skills";
+const GITHUB_SYNC_STORAGE_KEY = "mhnow-strategy-planner-github-sync";
 const { materialById, monsterById, gearById } = createIndexes(GAME_DATA);
 const page = document.body.dataset.page ?? "home";
-const loadoutIdFromRoute = new URLSearchParams(window.location.search).get("id");
+const routeParams = new URLSearchParams(window.location.search);
+const loadoutIdFromRoute = routeParams.get("id");
+const focusedGearIdFromRoute = routeParams.get("gear");
 
 const state = {
   ownedGearIds: loadOwnedGearIds(),
@@ -46,6 +50,7 @@ const state = {
   assumeWeakPoint: false,
   favoriteGearIds: loadFavoriteGearIds(),
   driftsmeltSkillPools: loadDriftsmeltSkillPools(),
+  githubSync: loadGithubSyncSettings(),
   loadoutDriftsmeltSelections: {},
   openDriftsmeltPoolIds: new Set(),
   searches: { weapons: "", armor: "", monsters: "", materials: "" },
@@ -61,6 +66,13 @@ const elements = {
   profileExport: document.querySelector("#profile-export"),
   profileImportFile: document.querySelector("#profile-import-file"),
   profileFeedback: document.querySelector("#profile-feedback"),
+  githubToken: document.querySelector("#github-sync-token"),
+  githubGistId: document.querySelector("#github-sync-gist"),
+  githubRemember: document.querySelector("#github-sync-remember"),
+  githubCreate: document.querySelector("#github-sync-create"),
+  githubSave: document.querySelector("#github-sync-save"),
+  githubLoad: document.querySelector("#github-sync-load"),
+  githubFeedback: document.querySelector("#github-sync-feedback"),
   featuredTarget: document.querySelector("#featured-target"),
   homeOutlook: document.querySelector("#home-outlook"),
   plannerBrief: document.querySelector("#planner-brief"),
@@ -117,6 +129,7 @@ function init() {
   renderCollectionStatus();
   populatePlannerControls();
   populateCatalogueFilters();
+  populateGithubSyncControls();
   wireEvents();
 
   if (page === "home") {
@@ -201,6 +214,12 @@ function wireEvents() {
   ensureSkillDialog();
   elements.profileExport?.addEventListener("click", exportProfile);
   elements.profileImportFile?.addEventListener("change", importProfileFile);
+  elements.githubCreate?.addEventListener("click", createGithubCloudSlot);
+  elements.githubSave?.addEventListener("click", saveProfileToGithub);
+  elements.githubLoad?.addEventListener("click", loadProfileFromGithub);
+  elements.githubToken?.addEventListener("change", saveGithubSyncDraftFromInputs);
+  elements.githubGistId?.addEventListener("change", saveGithubSyncDraftFromInputs);
+  elements.githubRemember?.addEventListener("change", saveGithubSyncDraftFromInputs);
 
   elements.targetMonster?.addEventListener("change", (event) => {
     state.targetMonsterId = event.target.value;
@@ -470,6 +489,15 @@ function renderCollectionStatus() {
   elements.collectionStatus.textContent = `${owned} forged pieces`;
 }
 
+function populateGithubSyncControls() {
+  if (!elements.githubToken) return;
+  elements.githubToken.value = state.githubSync.token ?? "";
+  elements.githubGistId.value = state.githubSync.gistId ?? "";
+  if (elements.githubRemember) {
+    elements.githubRemember.checked = state.githubSync.rememberToken ?? false;
+  }
+}
+
 function exportProfile() {
   const exportData = createProfileExport({
     ownedGearIds: [...state.ownedGearIds],
@@ -557,6 +585,136 @@ function setProfileFeedback(message, type) {
   elements.profileFeedback.dataset.state = type;
 }
 
+function currentProfileData() {
+  return {
+    ownedGearIds: [...state.ownedGearIds],
+    gearProgress: state.gearProgress,
+    targetMonsterId: state.targetMonsterId,
+    targetStars: state.targetStars,
+    savedLoadouts: state.savedLoadouts,
+    favoriteGearIds: [...state.favoriteGearIds],
+    driftsmeltSkillPools: state.driftsmeltSkillPools,
+  };
+}
+
+function currentProfileExport() {
+  return createProfileExport(currentProfileData());
+}
+
+function loadGithubSyncSettings() {
+  try {
+    const raw = localStorage.getItem(GITHUB_SYNC_STORAGE_KEY);
+    if (!raw) return { token: "", gistId: "", rememberToken: false };
+    const parsed = JSON.parse(raw);
+    return {
+      token: typeof parsed?.token === "string" ? parsed.token : "",
+      gistId: typeof parsed?.gistId === "string" ? parsed.gistId : "",
+      rememberToken: Boolean(parsed?.rememberToken),
+    };
+  } catch {
+    return { token: "", gistId: "", rememberToken: false };
+  }
+}
+
+function persistGithubSyncSettings() {
+  const payload = {
+    gistId: state.githubSync.gistId ?? "",
+    rememberToken: Boolean(state.githubSync.rememberToken),
+    token: state.githubSync.rememberToken ? (state.githubSync.token ?? "") : "",
+  };
+  localStorage.setItem(GITHUB_SYNC_STORAGE_KEY, JSON.stringify(payload));
+}
+
+function saveGithubSyncDraftFromInputs() {
+  if (!elements.githubToken || !elements.githubGistId) return;
+  state.githubSync = {
+    token: elements.githubToken.value.trim(),
+    gistId: elements.githubGistId.value.trim(),
+    rememberToken: elements.githubRemember?.checked ?? false,
+  };
+  persistGithubSyncSettings();
+}
+
+function setGithubSyncFeedback(message, type) {
+  if (!elements.githubFeedback) return;
+  elements.githubFeedback.textContent = message;
+  elements.githubFeedback.dataset.state = type;
+}
+
+async function createGithubCloudSlot() {
+  saveGithubSyncDraftFromInputs();
+  if (!state.githubSync.token) {
+    setGithubSyncFeedback("Enter a GitHub personal access token first.", "error");
+    return;
+  }
+
+  try {
+    setGithubSyncFeedback("Creating your private GitHub Gist cloud slot...", "success");
+    const result = await createProfileGist({
+      token: state.githubSync.token,
+      exportData: currentProfileExport(),
+    });
+    state.githubSync.gistId = result.gistId;
+    persistGithubSyncSettings();
+    populateGithubSyncControls();
+    setGithubSyncFeedback(`Cloud slot created. Gist ${result.gistId} is ready for this planner profile.`, "success");
+  } catch (error) {
+    setGithubSyncFeedback(error instanceof Error ? error.message : "Could not create the GitHub cloud slot.", "error");
+  }
+}
+
+async function saveProfileToGithub() {
+  saveGithubSyncDraftFromInputs();
+  if (!state.githubSync.token) {
+    setGithubSyncFeedback("Enter a GitHub personal access token first.", "error");
+    return;
+  }
+  if (!state.githubSync.gistId) {
+    await createGithubCloudSlot();
+    if (!state.githubSync.gistId) return;
+  }
+
+  try {
+    setGithubSyncFeedback("Saving your Field Kit profile to GitHub...", "success");
+    await updateProfileGist({
+      token: state.githubSync.token,
+      gistId: state.githubSync.gistId,
+      exportData: currentProfileExport(),
+    });
+    setGithubSyncFeedback(`Cloud save complete. Gist ${state.githubSync.gistId} now has your latest loadouts and gear progress.`, "success");
+  } catch (error) {
+    setGithubSyncFeedback(error instanceof Error ? error.message : "Could not save the profile to GitHub.", "error");
+  }
+}
+
+async function loadProfileFromGithub() {
+  saveGithubSyncDraftFromInputs();
+  if (!state.githubSync.token) {
+    setGithubSyncFeedback("Enter a GitHub personal access token first.", "error");
+    return;
+  }
+  if (!state.githubSync.gistId) {
+    setGithubSyncFeedback("Enter the GitHub Gist ID for your saved profile.", "error");
+    return;
+  }
+
+  try {
+    setGithubSyncFeedback("Loading your Field Kit profile from GitHub...", "success");
+    const result = await loadProfileGist({
+      token: state.githubSync.token,
+      gistId: state.githubSync.gistId,
+    });
+    if (!window.confirm("Load the GitHub cloud profile and replace the current browser's Field Kit data?")) {
+      setGithubSyncFeedback("Cloud profile loaded, but the current browser data was left unchanged.", "success");
+      return;
+    }
+    applyImportedProfile(result.profile);
+    setGithubSyncFeedback(`Cloud load complete. Gist ${state.githubSync.gistId} restored this browser's profile.`, "success");
+  } catch (error) {
+    setGithubSyncFeedback(error instanceof Error ? error.message : "Could not load the profile from GitHub.", "error");
+  }
+}
+
 function renderHome() {
   const target = monsterById[state.targetMonsterId];
   const bestBuild = getRecommendedBuilds()[0];
@@ -602,19 +760,21 @@ function renderPlanner() {
 }
 
 function renderWeapons() {
-  const items = filterWeapons(GAME_DATA.weapons, {
+  const items = prioritizeFocusedGear(filterWeapons(GAME_DATA.weapons, {
     ...state.catalogueFilters.weapons,
     query: state.searches.weapons,
-  }, state.favoriteGearIds, state.ownedGearIds);
+  }, state.favoriteGearIds, state.ownedGearIds), focusedGearIdFromRoute, GAME_DATA.weapons);
   elements.weaponsGrid.innerHTML = catalogueGrid(items, 60, weaponCard, "weapons");
+  focusGearCard(focusedGearIdFromRoute);
 }
 
 function renderArmor() {
-  const items = filterArmor(GAME_DATA.armor.map(displayGear), {
+  const items = prioritizeFocusedGear(filterArmor(GAME_DATA.armor.map(displayGear), {
     ...state.catalogueFilters.armor,
     query: state.searches.armor,
-  }, state.favoriteGearIds, state.ownedGearIds);
+  }, state.favoriteGearIds, state.ownedGearIds), focusedGearIdFromRoute, GAME_DATA.armor.map(displayGear));
   elements.armorGrid.innerHTML = catalogueGrid(items, 60, armorCard, "armor pieces");
+  focusGearCard(focusedGearIdFromRoute);
 }
 
 function renderMonsters() {
@@ -887,6 +1047,8 @@ function loadoutLibraryCard(loadout) {
   if (!build) {
     return "";
   }
+  const finalStats = calculateFinalLoadoutStats(build);
+  const topSkills = aggregateSkills([build.weapon, ...build.armor]).slice(0, 6);
   const activeDriftsmelt = build.armor.flatMap((piece) => piece.driftsmeltSkills ?? []);
   const gearRows = [build.weapon, ...build.armor].map((gear) => `
     <li>${imageMarkup(gear, "library-gear-image")}<span><b>${gear.part ?? gear.type}</b>${gear.name}</span><em>G${gear.grade} L${gear.level}</em></li>
@@ -894,6 +1056,15 @@ function loadoutLibraryCard(loadout) {
   return `
     <article class="loadout-library-card">
       <div class="library-card-hero">${imageMarkup(build.weapon, "library-weapon-image")}<div><span class="type-label">${loadout.origin === "suggested" ? "Saved upgrade target" : "Saved loadout"}</span><h2>${loadout.name}</h2><p>${build.weapon.name} · ${build.weapon.type}</p></div></div>
+      <div class="library-stat-grid">
+        <span><small>Raw</small><b>${finalStats.rawAttack}</b></span>
+        <span><small>Affinity</small><b>${finalStats.affinity >= 0 ? "+" : ""}${finalStats.affinity}%</b></span>
+        <span><small>Element</small><b>${finalStats.weaponElement ? `${finalStats.weaponElement.type} ${finalStats.potentialElement}` : "None"}</b></span>
+        <span><small>Defense</small><b>${finalStats.defense}</b></span>
+      </div>
+      <div class="library-skill-strip">
+        ${skillChips(topSkills)}
+      </div>
       <ul class="library-gear-list">${gearRows}</ul>
       <p class="library-driftsmelt">${activeDriftsmelt.length ? `Active Driftsmelt: ${activeDriftsmelt.map((skill) => `${skill} Lv.1`).join(" · ")}` : "No active Driftsmelt skills"}</p>
       <div class="loadout-card-actions"><a class="secondary-action" href="loadout-editor.html?id=${encodeURIComponent(loadout.id)}">Edit</a><a class="card-action" href="loadout-review.html?id=${encodeURIComponent(loadout.id)}">Review</a><button type="button" data-loadout-action="delete" data-loadout-id="${loadout.id}">Delete</button></div>
@@ -905,6 +1076,31 @@ function savedLoadoutSummary(loadout, build, counts, finalStats) {
   const affinityLabel = `${finalStats.baseAffinity >= 0 ? "+" : ""}${finalStats.baseAffinity}% base${finalStats.affinity !== finalStats.baseAffinity ? ` -> ${finalStats.affinity >= 0 ? "+" : ""}${finalStats.affinity}%` : ""}`;
   const rawDetail = formatRawStatDetail(build.weapon.attack, finalStats);
   const elementSummary = formatElementStatSummary(finalStats);
+  const loadoutGearRows = [
+    {
+      label: build.weapon.type,
+      item: build.weapon,
+      note: `${build.weapon.type} · G${build.weapon.grade} L${build.weapon.level}`,
+      link: `weapons.html?gear=${encodeURIComponent(build.weapon.id)}`,
+    },
+    ...build.armor.map((piece) => ({
+      label: piece.part,
+      item: piece,
+      note: `G${piece.grade} L${piece.level} · ${piece.defense} defense`,
+      link: `armor.html?gear=${encodeURIComponent(piece.id)}`,
+    })),
+  ].map(({ label, item, note, link }) => `
+    <li>
+      ${imageMarkup(item, "summary-gear-image")}
+      <div class="summary-gear-copy">
+        <span>${label}</span>
+        <b>${item.name}</b>
+        <small>${note}</small>
+        ${skillChips(item.skills)}
+      </div>
+      <a class="summary-gear-link" href="${link}">Edit</a>
+    </li>
+  `).join("");
   const assumptions = [
     finalStats.rawSkillBonus ? `Attack Boost +${finalStats.rawSkillBonus}` : null,
     finalStats.attackEfficacyLevel ? `Attack Efficacy +${Math.round(finalStats.attackEfficacyMultiplier * 100)}%` : null,
@@ -917,6 +1113,7 @@ function savedLoadoutSummary(loadout, build, counts, finalStats) {
     : "No Driftsmelt skills recorded for this saved loadout.";
   return `
     <div class="loadout-summary-gear">${imageMarkup(build.weapon, "summary-weapon-image")}<div><span class="type-label">Reviewing ${loadout.name}</span><h2>${build.weapon.name}</h2><p>G${build.weapon.grade} L${build.weapon.level} · exact saved gear stats</p></div></div>
+    <div class="summary-gear-panel"><div class="summary-gear-heading"><p class="eyebrow">Equipped gear</p><a class="secondary-action" href="loadout-editor.html?id=${encodeURIComponent(loadout.id)}">Edit this loadout</a></div><ul class="summary-gear-list">${loadoutGearRows}</ul></div>
     <div class="final-stat-grid"><span><small>Final raw</small><b>${finalStats.rawAttack}</b><em>${rawDetail}</em></span><span><small>Affinity</small><b>${finalStats.affinity >= 0 ? "+" : ""}${finalStats.affinity}%</b><em>${affinityLabel}</em></span><span><small>Final element</small><b>${elementSummary.value}</b><em>${elementSummary.detail}</em></span><span><small>Defense</small><b>${finalStats.defense}</b><em>five armor pieces</em></span></div>
     <p class="damage-assumptions">${assumptions.length ? `Applied: ${assumptions.join(" · ")}. ` : "No always-on offensive skill bonus found. "}Conditional, weapon-specific, status, and timing skills remain listed but are not converted into damage.</p>
     <p class="damage-assumptions">${driftsmeltLabel}</p>
@@ -943,7 +1140,7 @@ function loadoutOutlookMarkup(evaluations) {
 function weaponCard(weapon) {
   const currentWeapon = displayGear(weapon);
   return `
-    <article class="catalogue-card gear-card">
+    <article class="catalogue-card gear-card" id="gear-${currentWeapon.id}" data-gear-card="${currentWeapon.id}">
       ${imageMarkup(currentWeapon, "gear-image")}
       <div class="card-body">
         <div class="card-topline"><span class="type-label">${currentWeapon.type}</span><div class="gear-card-actions">${favoriteToggle(weapon)}${ownedToggle(weapon)}</div></div>
@@ -965,7 +1162,7 @@ function armorCard(piece) {
     ? `${slotCount} Driftsmelt slot${slotCount === 1 ? "" : "s"}${unlockGrades.length ? ` (G${unlockGrades.join(", G")})` : ""}`
     : "No Driftsmelt slot";
   return `
-    <article class="catalogue-card gear-card">
+    <article class="catalogue-card gear-card" id="gear-${currentPiece.id}" data-gear-card="${currentPiece.id}">
       ${imageMarkup(currentPiece, "gear-image")}
       <div class="card-body">
         <div class="card-topline"><span class="type-label">${currentPiece.part}</span><div class="gear-card-actions">${favoriteToggle(piece)}${ownedToggle(piece)}</div></div>
@@ -1215,7 +1412,7 @@ function ensureSkillDialog() {
         <p class="eyebrow">Skill details</p>
         <h2 id="skill-dialog-title"></h2>
         <p id="skill-dialog-level" class="skill-dialog-level"></p>
-        <p id="skill-dialog-description" class="skill-dialog-description"></p>
+        <div id="skill-dialog-description" class="skill-dialog-description"></div>
       </div>
     </div>
   `);
@@ -1225,9 +1422,10 @@ function openSkillDialog(name, level, fallbackEffect) {
   const dialog = document.querySelector("#skill-dialog");
   if (!dialog) return;
   const canonicalName = canonicalSkillName(name);
+  const descriptions = skillDescriptions(canonicalName, fallbackEffect, level);
   dialog.querySelector("#skill-dialog-title").textContent = canonicalName;
   dialog.querySelector("#skill-dialog-level").textContent = `Current level shown: Lv.${level || 1}`;
-  dialog.querySelector("#skill-dialog-description").textContent = skillDescription(canonicalName, level, fallbackEffect);
+  dialog.querySelector("#skill-dialog-description").innerHTML = `<ul class="skill-level-list">${descriptions.map((description, index) => `<li class="${index + 1 === (level || 1) ? "is-current" : ""}"><span>Lv.${index + 1}</span><p>${description.replace(/^Lv\.\d+:\s*/, "")}</p></li>`).join("")}</ul>`;
   dialog.hidden = false;
 }
 
@@ -1248,6 +1446,24 @@ function escapeAttribute(value = "") {
 
 function filterBySearch(items, search, getText) {
   return search ? items.filter((item) => getText(item).toLowerCase().includes(search)) : items;
+}
+
+function prioritizeFocusedGear(items, focusedGearId, sourceItems) {
+  if (!focusedGearId) return items;
+  const focusedItem = sourceItems.find((item) => item.id === focusedGearId);
+  if (!focusedItem) return items;
+  const withoutFocused = items.filter((item) => item.id !== focusedGearId);
+  return [focusedItem, ...withoutFocused];
+}
+
+function focusGearCard(focusedGearId) {
+  if (!focusedGearId) return;
+  const card = document.querySelector(`[data-gear-card="${focusedGearId}"]`);
+  if (!(card instanceof HTMLElement)) return;
+  card.classList.add("is-focused");
+  requestAnimationFrame(() => {
+    card.scrollIntoView({ block: "start", behavior: "smooth" });
+  });
 }
 
 function getRecommendedBuilds() {

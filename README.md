@@ -30,6 +30,22 @@ The site needs no server or database. Ownership, Driftsmelt pools, and saved loa
 
 The export contains forged gear, Grade and Level, favorites, Driftsmelt pools, hunt target, and saved loadouts. Importing replaces the current Field Kit profile in that browser.
 
+### Sync Your Profile Across Devices
+
+Field Kit can also sync through a private GitHub Gist, which works on a static GitHub Pages site without a backend.
+
+1. Create a GitHub personal access token with **Gists** access.
+2. On the Field Kit home page, paste the token into **Cloud sync**.
+3. Select **Create cloud slot** once to create a private Gist and store its Gist ID.
+4. Select **Save to GitHub** whenever you want to push your latest profile.
+5. On another device, open the same site, enter the same token and Gist ID, then select **Load from GitHub**.
+
+Notes:
+
+- The token is never embedded in the site build; it is only used from your browser to call the GitHub API.
+- If you disable **Remember token on this device**, the token is not kept in `localStorage`.
+- The profile Gist stores the same portable JSON used by **Export my profile**.
+
 ## Pages
 
 - `index.html`: Home dashboard and clear next actions
@@ -78,6 +94,7 @@ The export contains forged gear, Grade and Level, favorites, Driftsmelt pools, h
 - Run `node scripts/sync-official-snapshot.mjs` to refresh from the official guide pages. The script rewrites the generated data file.
 - Ownership data is stored only in browser `localStorage`.
 - Saved loadouts are also stored only in browser `localStorage`; they do not sync to a game account or cloud service.
+- Optional GitHub cloud sync stores the same profile JSON inside a private GitHub Gist that you control.
 - Driftsmelt pools are a local record of the skills you rolled. The picker suggests documented Driftsmelt and official snapshot skills, and also accepts a validated custom skill name; conditional and weapon-specific skills remain visible but are not converted into reference damage.
 - Armor Driftsmelt filters and cards use the official slot count at every published Grade. Forged pieces reflect their selected Grade; unowned pieces show their highest published Grade.
 

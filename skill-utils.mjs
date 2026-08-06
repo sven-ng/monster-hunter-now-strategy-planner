@@ -1,3 +1,5 @@
+import { GAME_DATA } from "./data/game-data.mjs";
+
 const SKILL_NAME_ALIASES = {
   Powerhouse: "Attack Efficacy",
 };
@@ -43,11 +45,41 @@ const SKILL_DESCRIPTIONS = {
     "Lv.4: Landing consecutive hits in a short span of time increases attack power by 20% for 4 seconds.",
     "Lv.5: Landing consecutive hits in a short span of time increases attack power by 30% for 4 seconds.",
   ],
-  "Fire Attack": ["Increases your weapon's fire element value."],
-  "Water Attack": ["Increases your weapon's water element value."],
-  "Thunder Attack": ["Increases your weapon's thunder element value."],
-  "Ice Attack": ["Increases your weapon's ice element value."],
-  "Dragon Attack": ["Increases your weapon's dragon element value."],
+  "Fire Attack": [
+    "Lv.1: Increases your weapon's fire element value by 50.",
+    "Lv.2: Increases your weapon's fire element value by 100.",
+    "Lv.3: Increases your weapon's fire element value by 200.",
+    "Lv.4: Increases your weapon's fire element value by 350.",
+    "Lv.5: Increases your weapon's fire element value by 500.",
+  ],
+  "Water Attack": [
+    "Lv.1: Increases your weapon's water element value by 50.",
+    "Lv.2: Increases your weapon's water element value by 100.",
+    "Lv.3: Increases your weapon's water element value by 200.",
+    "Lv.4: Increases your weapon's water element value by 350.",
+    "Lv.5: Increases your weapon's water element value by 500.",
+  ],
+  "Thunder Attack": [
+    "Lv.1: Increases your weapon's thunder element value by 50.",
+    "Lv.2: Increases your weapon's thunder element value by 100.",
+    "Lv.3: Increases your weapon's thunder element value by 200.",
+    "Lv.4: Increases your weapon's thunder element value by 350.",
+    "Lv.5: Increases your weapon's thunder element value by 500.",
+  ],
+  "Ice Attack": [
+    "Lv.1: Increases your weapon's ice element value by 50.",
+    "Lv.2: Increases your weapon's ice element value by 100.",
+    "Lv.3: Increases your weapon's ice element value by 200.",
+    "Lv.4: Increases your weapon's ice element value by 350.",
+    "Lv.5: Increases your weapon's ice element value by 500.",
+  ],
+  "Dragon Attack": [
+    "Lv.1: Increases your weapon's dragon element value by 50.",
+    "Lv.2: Increases your weapon's dragon element value by 100.",
+    "Lv.3: Increases your weapon's dragon element value by 200.",
+    "Lv.4: Increases your weapon's dragon element value by 350.",
+    "Lv.5: Increases your weapon's dragon element value by 500.",
+  ],
 };
 
 export function canonicalSkillName(name) {
@@ -74,4 +106,49 @@ export function skillDescription(name, level, fallbackEffect = "") {
     return fallbackEffect;
   }
   return "Official guide skill. Detailed effect text is not mapped yet in Field Kit.";
+}
+
+export function skillDescriptions(name, fallbackEffect = "", currentLevel = 1) {
+  const canonicalName = canonicalSkillName(name);
+  const descriptions = SKILL_DESCRIPTIONS[canonicalName];
+  if (descriptions?.length) {
+    if (descriptions.length > 1) {
+      return descriptions;
+    }
+    const rowCount = Math.max(descriptions.length, publishedSkillLevelCount(canonicalName), Number(currentLevel) || 1);
+    return Array.from({ length: rowCount }, () => descriptions[0]);
+  }
+  const generic = skillDescription(canonicalName, 1, fallbackEffect);
+  const rowCount = Math.max(publishedSkillLevelCount(canonicalName), Number(currentLevel) || 1);
+  if (rowCount > 1) {
+    return Array.from({ length: rowCount }, () => generic);
+  }
+  if (descriptions?.length) {
+    return descriptions;
+  }
+  return [generic];
+}
+
+const PUBLISHED_SKILL_LEVELS = buildPublishedSkillLevels();
+
+function buildPublishedSkillLevels() {
+  const levels = new Map();
+  for (const gear of [...GAME_DATA.weapons, ...GAME_DATA.armor]) {
+    collectSkillLevels(gear.skills, levels);
+    for (const gradeOption of gear.gradeOptions ?? []) {
+      collectSkillLevels(gradeOption.skills, levels);
+    }
+  }
+  return levels;
+}
+
+function collectSkillLevels(skills = [], levels) {
+  for (const skill of skills) {
+    const name = canonicalSkillName(skill.name);
+    levels.set(name, Math.max(levels.get(name) ?? 0, Number(skill.level) || 0));
+  }
+}
+
+function publishedSkillLevelCount(name) {
+  return PUBLISHED_SKILL_LEVELS.get(canonicalSkillName(name)) ?? 1;
 }

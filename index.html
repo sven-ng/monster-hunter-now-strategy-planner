@@ -29,6 +29,25 @@
             <p id="profile-feedback" class="profile-feedback" role="status"></p>
           </div>
         </section>
+        <section class="profile-transfer cloud-sync" aria-labelledby="cloud-sync-title">
+          <div>
+            <p class="eyebrow">Cloud sync</p>
+            <h2 id="cloud-sync-title">Keep one profile across devices</h2>
+            <p>Field Kit is static, so automatic account sync needs a personal GitHub cloud slot. Paste a GitHub personal access token with <b>Gists</b> access, create a private Gist once, then save or load your planner profile from any device.</p>
+            <p class="catalogue-note">Recommended flow: create one private Gist here, note its ID, then use the same token and Gist ID on your other devices.</p>
+          </div>
+          <div class="cloud-sync-form">
+            <label><span>GitHub token</span><input id="github-sync-token" type="password" placeholder="ghp_... or fine-grained token" autocomplete="off" /></label>
+            <label><span>Profile Gist ID</span><input id="github-sync-gist" type="text" placeholder="Filled after you create the cloud slot" autocomplete="off" /></label>
+            <label class="catalogue-check"><input id="github-sync-remember" type="checkbox" /><span>Remember token on this device</span></label>
+            <div class="cloud-sync-actions">
+              <button id="github-sync-create" class="secondary-action" type="button">Create cloud slot</button>
+              <button id="github-sync-save" class="primary-action" type="button">Save to GitHub</button>
+              <button id="github-sync-load" class="secondary-action" type="button">Load from GitHub</button>
+            </div>
+            <p id="github-sync-feedback" class="profile-feedback" role="status"></p>
+          </div>
+        </section>
         <section class="feature-panel" id="featured-target"></section>
         <section class="section-block"><div class="section-heading"><p class="eyebrow">Elemental opportunities</p><h2>Strong matchups in your field kit</h2><a href="planner.html">See full planner</a></div><div id="home-outlook" class="outlook-grid"></div></section>
       </main>
