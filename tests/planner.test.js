@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { GAME_DATA } from "../data/game-data.mjs";
 import { MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeActiveDriftsmeltSkills, normalizeDriftsmeltSkillPool } from "../driftsmelt.mjs";
+import { createProfileExport, parseProfileExport } from "../profile-transfer.mjs";
 import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterWeapons } from "../catalogue-filters.mjs";
 import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "../loadouts.mjs";
 import { buildUpgradePlan, getNextGearUpgrade } from "../upgrade-planner.mjs";
@@ -29,6 +30,15 @@ test("official snapshot includes the current full catalogue shape", () => {
   assert.match(GAME_DATA.armor[0].imageUrl, /^https:\/\//);
   assert.match(GAME_DATA.materials[0].imageUrl, /^https:\/\//);
   assert.ok(GAME_DATA.armor.every((piece) => piece.gradeOptions.every((option) => Number.isInteger(option.driftsmeltSlots))));
+});
+
+test("profile exports preserve a portable planner profile and reject unrelated files", () => {
+  const profile = { ownedGearIds: ["greatjagras_gunlance"], targetStars: 8, savedLoadouts: [] };
+  const exported = createProfileExport(profile, "2026-08-06T00:00:00.000Z");
+
+  assert.deepEqual(parseProfileExport(JSON.stringify(exported)), profile);
+  assert.throws(() => parseProfileExport('{"version": 999, "profile": {}}'), /compatible Field Kit/);
+  assert.throws(() => parseProfileExport('not-json'), /valid JSON/);
 });
 
 test("every published monster drop resolves to a material entry", () => {

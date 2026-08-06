@@ -50,6 +50,14 @@ button, input, select { font: inherit; }
 .stat-card { min-height: 126px; padding: 20px; border: 1px solid var(--line); border-radius: 17px; background: linear-gradient(145deg, rgba(22, 56, 63, 0.86), rgba(8, 24, 30, 0.93)); }
 .stat-card span { color: var(--muted); font-size: 0.74rem; font-weight: 700; }
 .stat-card strong { display: block; margin-top: 10px; color: var(--aqua); font-family: "Iowan Old Style", "Palatino Linotype", serif; font-size: 2.65rem; line-height: 1; }
+.profile-transfer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px; align-items: center; margin: 22px 0; padding: 22px; border: 1px solid rgba(118, 228, 209, 0.34); border-radius: 19px; background: linear-gradient(115deg, rgba(18, 67, 67, 0.72), rgba(8, 28, 34, 0.92)); }
+.profile-transfer h2 { margin: 0; font-family: "Iowan Old Style", "Palatino Linotype", serif; font-size: 1.75rem; letter-spacing: -0.03em; }
+.profile-transfer p:not(.eyebrow) { max-width: 70ch; margin: 7px 0 0; color: var(--muted); font-size: 0.78rem; line-height: 1.55; }
+.profile-transfer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: 330px; }
+.profile-transfer-actions .primary-action, .profile-transfer-actions .secondary-action { margin: 0; white-space: nowrap; }
+.profile-feedback { width: 100%; text-align: right; }
+.profile-feedback[data-state="success"] { color: var(--success); }
+.profile-feedback[data-state="error"] { color: var(--danger); }
 
 .feature-panel { display: grid; grid-template-columns: 220px 1fr; gap: 28px; align-items: center; min-height: 245px; padding: 25px; border: 1px solid var(--line); border-radius: 25px; background: linear-gradient(110deg, rgba(20, 67, 66, 0.82), rgba(10, 29, 36, 0.94)); box-shadow: var(--shadow); }
 .feature-visual { display: grid; height: 190px; place-items: center; border-radius: 19px; background: radial-gradient(circle, rgba(118, 228, 209, 0.18), transparent 60%), rgba(4, 17, 23, 0.6); }
@@ -314,6 +322,9 @@ button.monster-focus-card:hover, button.monster-focus-card:focus-visible { borde
   .stats-grid, .outlook-grid, .build-grid { grid-template-columns: 1fr; }
   .stat-card { min-height: 92px; }
   .feature-panel, .planner-layout { grid-template-columns: 1fr; }
+  .profile-transfer { grid-template-columns: 1fr; gap: 16px; }
+  .profile-transfer-actions { justify-content: flex-start; max-width: none; }
+  .profile-feedback { text-align: left; }
   .feature-panel { gap: 14px; padding: 17px; }
   .feature-visual { height: 148px; }
   .feature-monster-image { width: 140px; height: 140px; }

@@ -16,6 +16,19 @@
       <main class="page home-page">
         <section class="welcome"><div><p class="eyebrow">Monster Hunter Now companion</p><h1>Know your next<br /><em>best hunt.</em></h1><p>One clear place to plan a hunt, save your real loadouts, map your next upgrades, track forged equipment, or browse the field guide.</p></div><div class="home-actions"><a href="planner.html">Plan a hunt <span>PL</span></a><a href="loadouts.html">Review loadouts <span>LD</span></a><a href="upgrades.html">Plan upgrades <span>UP</span></a><a href="weapons.html">Browse forge <span>WG</span></a><a href="monsters.html">Explore monsters <span>MG</span></a></div></section>
         <section id="home-stats" class="stats-grid" aria-label="Collection summary"></section>
+        <section class="profile-transfer" aria-labelledby="profile-transfer-title">
+          <div>
+            <p class="eyebrow">Move your profile</p>
+            <h2 id="profile-transfer-title">Bring your hunter stats online</h2>
+            <p>Export once from the local Field Kit, then import the file on this hosted site. It includes forged gear, Grade and Level, favorites, Driftsmelt pools, hunt target, and saved loadouts.</p>
+          </div>
+          <div class="profile-transfer-actions">
+            <button id="profile-export" class="primary-action" type="button">Export my profile</button>
+            <button id="profile-import" class="secondary-action" type="button">Import profile</button>
+            <input id="profile-import-file" class="sr-only" type="file" accept="application/json,.json" />
+            <p id="profile-feedback" class="profile-feedback" role="status"></p>
+          </div>
+        </section>
         <section class="feature-panel" id="featured-target"></section>
         <section class="section-block"><div class="section-heading"><p class="eyebrow">Elemental opportunities</p><h2>Strong matchups in your field kit</h2><a href="planner.html">See full planner</a></div><div id="home-outlook" class="outlook-grid"></div></section>
       </main>

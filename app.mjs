@@ -2,6 +2,7 @@ import { GAME_DATA } from "./data/game-data.mjs";
 import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterWeapons } from "./catalogue-filters.mjs";
 import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmeltSkillPool } from "./driftsmelt.mjs";
 import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs";
+import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs";
 import { buildUpgradePlan } from "./upgrade-planner.mjs";
 import {
   aggregateSkills,
@@ -56,6 +57,10 @@ const state = {
 const elements = {
   collectionStatus: document.querySelector("#collection-status"),
   homeStats: document.querySelector("#home-stats"),
+  profileExport: document.querySelector("#profile-export"),
+  profileImport: document.querySelector("#profile-import"),
+  profileImportFile: document.querySelector("#profile-import-file"),
+  profileFeedback: document.querySelector("#profile-feedback"),
   featuredTarget: document.querySelector("#featured-target"),
   homeOutlook: document.querySelector("#home-outlook"),
   plannerBrief: document.querySelector("#planner-brief"),
@@ -193,6 +198,10 @@ function sourceMonsterOptions(items) {
 }
 
 function wireEvents() {
+  elements.profileExport?.addEventListener("click", exportProfile);
+  elements.profileImport?.addEventListener("click", () => elements.profileImportFile?.click());
+  elements.profileImportFile?.addEventListener("change", importProfileFile);
+
   elements.targetMonster?.addEventListener("change", (event) => {
     state.targetMonsterId = event.target.value;
     persistTargetMonsterId();
@@ -444,6 +453,93 @@ function renderCollectionStatus() {
   const owned = GAME_DATA.weapons.filter((item) => state.ownedGearIds.has(item.id)).length
     + GAME_DATA.armor.filter((item) => state.ownedGearIds.has(item.id)).length;
   elements.collectionStatus.textContent = `${owned} forged pieces`;
+}
+
+function exportProfile() {
+  const exportData = createProfileExport({
+    ownedGearIds: [...state.ownedGearIds],
+    gearProgress: state.gearProgress,
+    targetMonsterId: state.targetMonsterId,
+    targetStars: state.targetStars,
+    savedLoadouts: state.savedLoadouts,
+    favoriteGearIds: [...state.favoriteGearIds],
+    driftsmeltSkillPools: state.driftsmeltSkillPools,
+  });
+  const url = URL.createObjectURL(new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "mhn-field-kit-profile.json";
+  link.click();
+  URL.revokeObjectURL(url);
+  setProfileFeedback("Profile exported. Open the hosted Field Kit, then import this file.", "success");
+}
+
+async function importProfileFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const profile = parseProfileExport(await file.text());
+    if (!window.confirm("Import this profile and replace the current browser's Field Kit data?")) return;
+    applyImportedProfile(profile);
+    setProfileFeedback("Profile imported. Your forged gear, upgrades, Driftsmelt pools, and loadouts are ready.", "success");
+  } catch (error) {
+    setProfileFeedback(error instanceof Error ? error.message : "The profile could not be imported.", "error");
+  } finally {
+    event.target.value = "";
+  }
+}
+
+function applyImportedProfile(profile) {
+  const knownGearIds = new Set([...GAME_DATA.weapons, ...GAME_DATA.armor].map((gear) => gear.id));
+  const armorIds = new Set(GAME_DATA.armor.map((gear) => gear.id));
+  state.ownedGearIds = new Set(Array.isArray(profile.ownedGearIds) ? profile.ownedGearIds.filter((id) => knownGearIds.has(id)) : []);
+  state.favoriteGearIds = new Set(Array.isArray(profile.favoriteGearIds) ? profile.favoriteGearIds.filter((id) => knownGearIds.has(id)) : []);
+  state.gearProgress = normalizeImportedGearProgress(profile.gearProgress, knownGearIds);
+  state.targetMonsterId = monsterById[profile.targetMonsterId] ? profile.targetMonsterId : GAME_DATA.monsters[0].id;
+  state.targetStars = Number.isInteger(profile.targetStars) && profile.targetStars >= 1 && profile.targetStars <= 10 ? profile.targetStars : 8;
+  state.loadoutStars = state.targetStars;
+  state.savedLoadouts = normalizeImportedLoadouts(profile.savedLoadouts, knownGearIds);
+  state.driftsmeltSkillPools = normalizeImportedDriftsmeltPools(profile.driftsmeltSkillPools, armorIds);
+
+  persistOwnedGearIds();
+  persistFavoriteGearIds();
+  persistGearProgress();
+  persistTargetMonsterId();
+  persistTargetStars();
+  persistSavedLoadouts();
+  persistDriftsmeltSkillPools();
+  renderCollectionStatus();
+  renderCurrentPage();
+}
+
+function normalizeImportedGearProgress(progress, knownGearIds) {
+  if (!progress || typeof progress !== "object" || Array.isArray(progress)) return {};
+  return Object.fromEntries(Object.entries(progress).flatMap(([gearId, value]) => {
+    const gear = gearById[gearId];
+    if (!knownGearIds.has(gearId) || !value || !Number.isInteger(value.grade)) return [];
+    return [[gearId, { grade: value.grade, level: maxLevelFor(gear, value.grade, value.level) }]];
+  }));
+}
+
+function normalizeImportedLoadouts(loadouts, knownGearIds) {
+  if (!Array.isArray(loadouts)) return [];
+  return loadouts.filter((loadout) => loadout?.weaponId && knownGearIds.has(loadout.weaponId)
+    && loadout?.armorIds && Object.values(loadout.armorIds).every((gearId) => knownGearIds.has(gearId))
+    && (loadout?.gearProgress || loadout?.gearGrades));
+}
+
+function normalizeImportedDriftsmeltPools(pools, armorIds) {
+  if (!pools || typeof pools !== "object" || Array.isArray(pools)) return {};
+  return Object.fromEntries(Object.entries(pools)
+    .filter(([gearId]) => armorIds.has(gearId))
+    .map(([gearId, skills]) => [gearId, normalizeDriftsmeltSkillPool(skills)]));
+}
+
+function setProfileFeedback(message, type) {
+  if (!elements.profileFeedback) return;
+  elements.profileFeedback.textContent = message;
+  elements.profileFeedback.dataset.state = type;
 }
 
 function renderHome() {

@@ -22,6 +22,14 @@ GitHub Pages deploys this static site from the repository's `main` branch whenev
 
 The site needs no server or database. Ownership, Driftsmelt pools, and saved loadouts are stored in each browser's `localStorage`, so your existing local-file data will not automatically appear on the online URL.
 
+### Move Your Profile Online
+
+1. Open the local Field Kit and select **Export my profile** on the home page.
+2. Open the hosted Field Kit in the browser where you want to use it.
+3. Select **Import profile** and choose the downloaded `mhn-field-kit-profile.json` file.
+
+The export contains forged gear, Grade and Level, favorites, Driftsmelt pools, hunt target, and saved loadouts. Importing replaces the current Field Kit profile in that browser.
+
 ## Pages
 
 - `index.html`: Home dashboard and clear next actions
