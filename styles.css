@@ -366,6 +366,12 @@ button.monster-focus-card:hover, button.monster-focus-card:focus-visible { borde
 .loadout-style-grid input, .loadout-style-grid textarea, .loadout-style-grid select { width: 100%; border: 1px solid rgba(118, 228, 209, 0.24); border-radius: 9px; padding: 9px 10px; color: var(--ink); background: rgba(1, 12, 16, 0.72); }
 .loadout-style-grid textarea { resize: vertical; min-height: 84px; }
 .loadout-style-grid .loadout-style-notes { grid-column: 1 / -1; }
+.loadout-selection-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.loadout-selection-card { display: grid; gap: 10px; padding: 12px; border: 1px solid rgba(118, 228, 209, 0.16); border-radius: 12px; background: rgba(5, 20, 25, 0.45); }
+.loadout-selection-card-top { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+.loadout-selection-card .summary-gear-copy { gap: 2px; }
+.loadout-selection-card .summary-gear-meta { margin-top: 2px; }
+.loadout-selection-card .summary-gear-link { justify-self: end; }
 .loadout-driftsmelt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin-top: 12px; }
 .loadout-driftsmelt-piece { padding: 10px; border: 1px solid rgba(118, 228, 209, 0.16); border-radius: 10px; background: rgba(5, 20, 25, 0.45); }
 .loadout-driftsmelt-piece > b, .loadout-driftsmelt-piece > span { display: block; }
@@ -402,6 +408,7 @@ button.monster-focus-card:hover, button.monster-focus-card:focus-visible { borde
   .outlook-grid { grid-template-columns: repeat(2, 1fr); }
   .builder-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .loadout-style-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .loadout-selection-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .catalogue-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .monster-focus-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -441,6 +448,7 @@ button.monster-focus-card:hover, button.monster-focus-card:focus-visible { borde
   .builder-heading { align-items: stretch; flex-direction: column; }
   .builder-grid { grid-template-columns: 1fr; }
   .loadout-style-grid { grid-template-columns: 1fr; }
+  .loadout-selection-grid { grid-template-columns: 1fr; }
   .catalogue-toolbar { grid-template-columns: 1fr; }
   .section-heading { align-items: stretch; flex-direction: column; }
   .review-controls { align-items: stretch; flex-direction: column; }

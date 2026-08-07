@@ -1,12 +1,12 @@
-import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-07-skill-rename-refresh";
-import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterMaterials, filterMonsters, filterWeapons } from "./catalogue-filters.mjs?v=2026-08-07-skill-rename-refresh";
-import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmeltSkillPool } from "./driftsmelt.mjs?v=2026-08-07-skill-rename-refresh";
-import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs?v=2026-08-07-skill-rename-refresh";
-import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs?v=2026-08-07-skill-rename-refresh";
-import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-07-skill-rename-refresh";
-import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions } from "./skill-utils.mjs?v=2026-08-07-skill-rename-refresh";
-import { buildUpgradePlan } from "./upgrade-planner.mjs?v=2026-08-07-skill-rename-refresh";
-import { applyWeaponStyleProfile, defaultWeaponStyleProfile, hasWeaponStyleBonus, isRiftborneMaterial, monsterHasRiftborne, normalizeWeaponStyleProfile, weaponSupportsStyle } from "./weapon-style.mjs?v=2026-08-07-skill-rename-refresh";
+import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-07-loadout-preview";
+import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterMaterials, filterMonsters, filterWeapons } from "./catalogue-filters.mjs?v=2026-08-07-loadout-preview";
+import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmeltSkillPool } from "./driftsmelt.mjs?v=2026-08-07-loadout-preview";
+import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs?v=2026-08-07-loadout-preview";
+import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs?v=2026-08-07-loadout-preview";
+import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-07-loadout-preview";
+import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions } from "./skill-utils.mjs?v=2026-08-07-loadout-preview";
+import { buildUpgradePlan } from "./upgrade-planner.mjs?v=2026-08-07-loadout-preview";
+import { applyWeaponStyleProfile, defaultWeaponStyleProfile, hasWeaponStyleBonus, isRiftborneMaterial, monsterHasRiftborne, normalizeWeaponStyleProfile, weaponSupportsStyle } from "./weapon-style.mjs?v=2026-08-07-loadout-preview";
 import {
   aggregateSkills,
   calculateFinalLoadoutStats,
@@ -17,7 +17,7 @@ import {
   getRequiredParts,
   recommendedGradeForStars,
   recommendBuilds,
-} from "./planner.mjs?v=2026-08-07-skill-rename-refresh";
+} from "./planner.mjs?v=2026-08-07-loadout-preview";
 
 const OWNED_STORAGE_KEY = "mhnow-strategy-planner-owned-gear";
 const GEAR_PROGRESS_STORAGE_KEY = "mhnow-strategy-planner-gear-progress";
@@ -116,6 +116,7 @@ const elements = {
   materialRiftborneFilter: document.querySelector("#catalogue-material-riftborne"),
   loadoutName: document.querySelector("#loadout-name"),
   loadoutWeapon: document.querySelector("#loadout-weapon"),
+  loadoutSelectionPreview: document.querySelector("#loadout-selection-preview"),
   loadoutWeaponStyle: document.querySelector("#loadout-weapon-style"),
   loadoutStars: document.querySelector("#loadout-stars"),
   loadoutWeakPoint: document.querySelector("#loadout-weak-point"),
@@ -323,10 +324,13 @@ function wireEvents() {
     const select = event.target;
     if (!(select instanceof HTMLSelectElement)) return;
     if (select === elements.loadoutWeapon) {
+      renderLoadoutSelectionPreview();
       renderLoadoutWeaponStyleEditor(getEditingLoadout());
+      renderLoadoutDriftsmeltSelectors();
       return;
     }
     if (select.dataset.loadoutArmorPart) {
+      renderLoadoutSelectionPreview();
       renderLoadoutDriftsmeltSelectors();
       return;
     }
@@ -942,18 +946,79 @@ function populateLoadoutControls(editingLoadout = null) {
     return;
   }
   const ownedWeapons = GAME_DATA.weapons.filter((item) => state.ownedGearIds.has(item.id) || item.id === editingLoadout?.weaponId);
-  elements.loadoutWeapon.innerHTML = buildLoadoutOptions(ownedWeapons, "Choose a forged weapon");
+  elements.loadoutWeapon.innerHTML = buildLoadoutOptions(ownedWeapons, "Choose a forged weapon", { kind: "weapon" });
   elements.loadoutWeapon.value = editingLoadout?.weaponId ?? "";
   for (const part of getRequiredParts(GAME_DATA)) {
     const selectedArmorId = editingLoadout?.armorIds?.[part];
     const ownedPieces = GAME_DATA.armor.filter((item) => item.part === part && (state.ownedGearIds.has(item.id) || item.id === selectedArmorId));
-    elements.loadoutParts[part].innerHTML = buildLoadoutOptions(ownedPieces, `Choose forged ${part.toLowerCase()} armor`);
+    elements.loadoutParts[part].innerHTML = buildLoadoutOptions(ownedPieces, `Choose forged ${part.toLowerCase()} armor`, { kind: "armor" });
     elements.loadoutParts[part].value = selectedArmorId ?? "";
     elements.loadoutParts[part].dataset.loadoutArmorPart = part;
   }
   elements.loadoutName.value = editingLoadout?.name ?? "";
   state.loadoutDriftsmeltSelections = editingLoadout ? driftsmeltSelectionsForLoadout(editingLoadout) : {};
+  renderLoadoutSelectionPreview();
   renderLoadoutDriftsmeltSelectors();
+}
+
+function renderLoadoutSelectionPreview() {
+  const container = elements.loadoutSelectionPreview;
+  if (!container || !elements.loadoutWeapon) return;
+  const selectedWeapon = gearById[elements.loadoutWeapon.value];
+  const selectedArmor = getRequiredParts(GAME_DATA)
+    .map((part) => gearById[elements.loadoutParts[part]?.value])
+    .filter(Boolean);
+
+  if (!selectedWeapon && !selectedArmor.length) {
+    container.innerHTML = '<p class="driftsmelt-loadout-note">Pick a weapon or armor piece to preview its attack, defense, element, and skills before saving this loadout.</p>';
+    return;
+  }
+
+  const cards = [
+    selectedWeapon ? loadoutSelectionPreviewCard(displayGear(selectedWeapon), { label: selectedWeapon.type, link: `weapons.html?gear=${encodeURIComponent(selectedWeapon.id)}` }) : "",
+    ...selectedArmor.map((piece) => loadoutSelectionPreviewCard(displayGear(piece), { label: piece.part, link: `armor.html?gear=${encodeURIComponent(piece.id)}` })),
+  ].filter(Boolean).join("");
+
+  container.innerHTML = `
+    <div class="loadout-driftsmelt-heading">
+      <p class="eyebrow">Selection preview</p>
+      <h3>See each choice before you save</h3>
+      <p>The picker text now includes key stats, and these cards show the full current Grade, Level, and equipment skills for what you selected.</p>
+    </div>
+    <div class="loadout-selection-grid">${cards}</div>
+  `;
+}
+
+function loadoutSelectionPreviewCard(item, { label, link }) {
+  const stats = "attack" in item
+    ? [
+      statToken("Attack", String(item.attack)),
+      statToken("Affinity", `${item.affinity >= 0 ? "+" : ""}${item.affinity}%`),
+      statToken("Element", item.element ? `${item.element.type} ${item.element.value}` : "None"),
+    ].join("")
+    : [
+      statToken("Defense", String(item.defense)),
+      statToken("Driftsmelt", item.driftsmeltSlots ? `${item.driftsmeltSlots} slot${item.driftsmeltSlots === 1 ? "" : "s"}` : "None"),
+      statToken("Source", sourceMonsterLabel(item.sourceMonsterId)),
+    ].join("");
+  return `
+    <article class="loadout-selection-card">
+      <div class="loadout-selection-card-top">
+        ${imageMarkup(item, "summary-gear-image")}
+        <div class="summary-gear-copy">
+          <span>${label}</span>
+          <b>${item.name}</b>
+          <p class="summary-gear-meta">${gradeLevelMarkup(item.grade, item.level, { compact: true })}</p>
+        </div>
+        <a class="summary-gear-link" href="${link}">Open</a>
+      </div>
+      <div class="summary-gear-stats">${stats}</div>
+      <div class="summary-gear-section">
+        <strong>Equipment skills</strong>
+        ${skillChips(item.skills ?? [])}
+      </div>
+    </article>
+  `;
 }
 
 function renderLoadoutWeaponStyleEditor(editingLoadout = null) {
@@ -1094,14 +1159,27 @@ function catalogueGrid(items, limit, renderer, label) {
   return `${note}<div class="catalogue-grid">${items.slice(0, limit).map(renderer).join("")}</div>`;
 }
 
-function buildLoadoutOptions(items, placeholder) {
+function buildLoadoutOptions(items, placeholder, { kind = "gear" } = {}) {
   const options = items
     .map((item) => {
       const current = displayGear(item);
-      return `<option value="${item.id}">${current.name} · G${current.grade} L${current.level}</option>`;
+      return `<option value="${item.id}">${escapeAttribute(loadoutOptionLabel(current, kind))}</option>`;
     })
     .join("");
   return `<option value="">${placeholder}</option>${options}`;
+}
+
+function loadoutOptionLabel(item, kind) {
+  if (kind === "weapon") {
+    const elementLabel = item.element ? `${item.element.type} ${item.element.value}` : "No element";
+    const skillLabel = normalizeSkills(item.skills ?? []).slice(0, 2).map((skill) => `${skill.name} ${skill.level}`).join(" / ");
+    return `${item.name} · G${item.grade} L${item.level} · ATK ${item.attack} · ${elementLabel}${skillLabel ? ` · ${skillLabel}` : ""}`;
+  }
+  if (kind === "armor") {
+    const skillLabel = normalizeSkills(item.skills ?? []).slice(0, 2).map((skill) => `${skill.name} ${skill.level}`).join(" / ");
+    return `${item.name} · G${item.grade} L${item.level} · DEF ${item.defense}${skillLabel ? ` · ${skillLabel}` : ""}`;
+  }
+  return `${item.name} · G${item.grade} L${item.level}`;
 }
 
 function getEditingLoadout() {
