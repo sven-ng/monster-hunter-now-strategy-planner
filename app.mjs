@@ -1,11 +1,11 @@
-import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-06-4be9116";
-import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterWeapons } from "./catalogue-filters.mjs?v=2026-08-06-4be9116";
-import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmeltSkillPool } from "./driftsmelt.mjs?v=2026-08-06-4be9116";
-import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs?v=2026-08-06-4be9116";
-import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs?v=2026-08-06-4be9116";
-import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-06-4be9116";
-import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions } from "./skill-utils.mjs?v=2026-08-06-4be9116";
-import { buildUpgradePlan } from "./upgrade-planner.mjs?v=2026-08-06-4be9116";
+import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-07-grade-colors";
+import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterWeapons } from "./catalogue-filters.mjs?v=2026-08-07-grade-colors";
+import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmeltSkillPool } from "./driftsmelt.mjs?v=2026-08-07-grade-colors";
+import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs?v=2026-08-07-grade-colors";
+import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs?v=2026-08-07-grade-colors";
+import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-07-grade-colors";
+import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions } from "./skill-utils.mjs?v=2026-08-07-grade-colors";
+import { buildUpgradePlan } from "./upgrade-planner.mjs?v=2026-08-07-grade-colors";
 import {
   aggregateSkills,
   calculateFinalLoadoutStats,
@@ -203,6 +203,19 @@ function populateCatalogueSelect(select, values, placeholder) {
 
 function uniqueValues(values) {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right));
+}
+
+function gradeTierClass(grade) {
+  const normalized = Math.max(1, Math.min(10, Number(grade) || 1));
+  return `grade-tier-${normalized}`;
+}
+
+function gradeMark(grade, { compact = false } = {}) {
+  return `<span class="grade-mark ${gradeTierClass(grade)}${compact ? " is-compact" : ""}">G${grade}</span>`;
+}
+
+function gradeLevelMarkup(grade, level, { compact = false } = {}) {
+  return `${gradeMark(grade, { compact })}<span class="level-mark">L${level}</span>`;
 }
 
 function sourceMonsterOptions(items) {
@@ -883,7 +896,7 @@ function upgradeSummaryMarkup(plan) {
 function upgradePriorityCard(entry, index) {
   const gain = entry.damageGain ? `+${entry.damageGain} reference damage` : `+${entry.defenseGain} defense`;
   const source = entry.sourceMonsterId ? sourceMonsterLabel(entry.sourceMonsterId) : "Gatherable materials";
-  return `<article class="upgrade-card ${index === 0 ? "top-upgrade" : ""}">${imageMarkup(entry.gear, "upgrade-gear-image")}<div><span class="type-label">${index === 0 ? "Next priority" : entry.kind}</span><h3>${entry.gear.name}</h3><p>G${entry.gear.grade} L${entry.gear.level} -> G${entry.nextGear.grade} L${entry.nextGear.level}</p><strong>${gain}</strong>${entry.newSkills.length ? `<small>Unlocks: ${entry.newSkills.map((skill) => `${skill.name} Lv.${skill.level}`).join(" · ")}</small>` : ""}</div><div class="upgrade-source"><span>Focus hunt</span><b>${source}</b></div></article>`;
+  return `<article class="upgrade-card ${index === 0 ? "top-upgrade" : ""}">${imageMarkup(entry.gear, "upgrade-gear-image")}<div><span class="type-label">${index === 0 ? "Next priority" : entry.kind}</span><h3>${entry.gear.name}</h3><p>${gradeLevelMarkup(entry.gear.grade, entry.gear.level, { compact: true })} <span class="grade-arrow">-></span> ${gradeLevelMarkup(entry.nextGear.grade, entry.nextGear.level, { compact: true })}</p><strong>${gain}</strong>${entry.newSkills.length ? `<small>Unlocks: ${entry.newSkills.map((skill) => `${skill.name} Lv.${skill.level}`).join(" · ")}</small>` : ""}</div><div class="upgrade-source"><span>Focus hunt</span><b>${source}</b></div></article>`;
 }
 
 function upgradeMonsterFocusCard(group, index) {
@@ -935,7 +948,7 @@ function renderLoadoutDriftsmeltSelectors() {
     const slotCount = driftsmeltSlotCount(piece);
     const pool = state.driftsmeltSkillPools[piece.id] ?? [];
     if (!slotCount) {
-      return `<article class="loadout-driftsmelt-piece"><b>${piece.part}: ${piece.name}</b><span>No active Driftsmelt slots at G${piece.grade}</span></article>`;
+      return `<article class="loadout-driftsmelt-piece"><b>${piece.part}: ${piece.name}</b><span>No active Driftsmelt slots at ${gradeMark(piece.grade, { compact: true })}</span></article>`;
     }
     const selections = state.loadoutDriftsmeltSelections[piece.id] ?? [];
     const options = pool.map((skill, index) => `<option value="${index}">${skill} Lv.1</option>`).join("");
@@ -1051,7 +1064,7 @@ function loadoutLibraryCard(loadout) {
   const topSkills = aggregateSkills([build.weapon, ...build.armor]).slice(0, 6);
   const activeDriftsmelt = build.armor.flatMap((piece) => piece.driftsmeltSkills ?? []);
   const gearRows = [build.weapon, ...build.armor].map((gear) => `
-    <li>${imageMarkup(gear, "library-gear-image")}<span><b>${gear.part ?? gear.type}</b>${gear.name}</span><em>G${gear.grade} L${gear.level}</em></li>
+    <li>${imageMarkup(gear, "library-gear-image")}<span><b>${gear.part ?? gear.type}</b>${gear.name}</span><em>${gradeLevelMarkup(gear.grade, gear.level, { compact: true })}</em></li>
   `).join("");
   return `
     <article class="loadout-library-card">
@@ -1076,31 +1089,53 @@ function savedLoadoutSummary(loadout, build, counts, finalStats) {
   const affinityLabel = `${finalStats.baseAffinity >= 0 ? "+" : ""}${finalStats.baseAffinity}% base${finalStats.affinity !== finalStats.baseAffinity ? ` -> ${finalStats.affinity >= 0 ? "+" : ""}${finalStats.affinity}%` : ""}`;
   const rawDetail = formatRawStatDetail(build.weapon.attack, finalStats);
   const elementSummary = formatElementStatSummary(finalStats);
+  const combinedSkills = aggregateSkills([build.weapon, ...build.armor]);
   const loadoutGearRows = [
     {
       label: build.weapon.type,
       item: build.weapon,
-      note: `${build.weapon.type} · G${build.weapon.grade} L${build.weapon.level}`,
       link: `weapons.html?gear=${encodeURIComponent(build.weapon.id)}`,
     },
     ...build.armor.map((piece) => ({
       label: piece.part,
       item: piece,
-      note: `G${piece.grade} L${piece.level} · ${piece.defense} defense`,
       link: `armor.html?gear=${encodeURIComponent(piece.id)}`,
     })),
-  ].map(({ label, item, note, link }) => `
+  ].map(({ label, item, link }) => {
+    const baseItem = reviewedBaseGear(item);
+    const builtInSkills = skillChips(baseItem.skills ?? []);
+    const activeDriftsmeltSkills = item.driftsmeltSkills?.length
+      ? skillChips(item.driftsmeltSkills.map((name) => ({ name, level: 1 })))
+      : '<p class="summary-gear-empty">No active Driftsmelt skill</p>';
+    const driftsmeltSection = "part" in item
+      ? `
+        <div class="summary-gear-section">
+          <strong>Driftsmelt</strong>
+          <p class="summary-gear-meta">${baseItem.driftsmeltSlots ? `${baseItem.driftsmeltSlots} active slot${baseItem.driftsmeltSlots === 1 ? "" : "s"}` : "No Driftsmelt slot at this grade"}</p>
+          ${baseItem.driftsmeltSlots ? activeDriftsmeltSkills : ""}
+        </div>
+      `
+      : "";
+    return `
     <li>
       ${imageMarkup(item, "summary-gear-image")}
       <div class="summary-gear-copy">
         <span>${label}</span>
         <b>${item.name}</b>
-        <small>${note}</small>
-        ${skillChips(item.skills)}
+        <div class="summary-gear-section">
+          <strong>Stats</strong>
+          <div class="summary-gear-stats">${reviewedGearStatsMarkup(item)}</div>
+        </div>
+        <div class="summary-gear-section">
+          <strong>Equipment skills</strong>
+          ${builtInSkills || '<p class="summary-gear-empty">No built-in skill</p>'}
+        </div>
+        ${driftsmeltSection}
       </div>
       <a class="summary-gear-link" href="${link}">Edit</a>
     </li>
-  `).join("");
+  `;
+  }).join("");
   const assumptions = [
     finalStats.rawSkillBonus ? `Attack Boost +${finalStats.rawSkillBonus}` : null,
     finalStats.attackEfficacyLevel ? `Attack Efficacy +${Math.round(finalStats.attackEfficacyMultiplier * 100)}%` : null,
@@ -1112,14 +1147,40 @@ function savedLoadoutSummary(loadout, build, counts, finalStats) {
     ? `Recorded Driftsmelt: ${driftsmeltSkills.map((skill) => `${skill} Lv.1`).join(" · ")}.`
     : "No Driftsmelt skills recorded for this saved loadout.";
   return `
-    <div class="loadout-summary-gear">${imageMarkup(build.weapon, "summary-weapon-image")}<div><span class="type-label">Reviewing ${loadout.name}</span><h2>${build.weapon.name}</h2><p>G${build.weapon.grade} L${build.weapon.level} · exact saved gear stats</p></div></div>
+    <div class="loadout-summary-gear">${imageMarkup(build.weapon, "summary-weapon-image")}<div><span class="type-label">Reviewing ${loadout.name}</span><h2>${build.weapon.name}</h2><p>${gradeLevelMarkup(build.weapon.grade, build.weapon.level, { compact: true })} · exact saved gear stats</p></div></div>
     <div class="summary-gear-panel"><div class="summary-gear-heading"><p class="eyebrow">Equipped gear</p><a class="secondary-action" href="loadout-editor.html?id=${encodeURIComponent(loadout.id)}">Edit this loadout</a></div><ul class="summary-gear-list">${loadoutGearRows}</ul></div>
     <div class="final-stat-grid"><span><small>Final raw</small><b>${finalStats.rawAttack}</b><em>${rawDetail}</em></span><span><small>Affinity</small><b>${finalStats.affinity >= 0 ? "+" : ""}${finalStats.affinity}%</b><em>${affinityLabel}</em></span><span><small>Final element</small><b>${elementSummary.value}</b><em>${elementSummary.detail}</em></span><span><small>Defense</small><b>${finalStats.defense}</b><em>five armor pieces</em></span></div>
+    <div class="summary-skill-panel"><p class="eyebrow">Skills</p>${skillChips(combinedSkills)}</div>
     <p class="damage-assumptions">${assumptions.length ? `Applied: ${assumptions.join(" · ")}. ` : "No always-on offensive skill bonus found. "}Conditional, weapon-specific, status, and timing skills remain listed but are not converted into damage.</p>
     <p class="damage-assumptions">${driftsmeltLabel}</p>
     <p class="damage-assumptions">${loadout.origin === "suggested" ? "Suggested upgrade targets keep their saved Grade and Level." : "Manual loadouts automatically use your latest forged Grade and Level."}</p>
     <div class="loadout-summary-stats"><span><b>${counts.easy}</b> elemental edges</span><span><b>${counts.fair}</b> on-grade or status hunts</span><span><b>${counts.hard}</b> underpowered hunts</span></div>
   `;
+}
+
+function reviewedBaseGear(item) {
+  const original = gearById[item.id];
+  return original ? getGearAtGrade(original, item.grade, item.level) : item;
+}
+
+function reviewedGearStatsMarkup(item) {
+  if ("attack" in item) {
+    return [
+      statToken("Attack", String(item.attack)),
+      statToken("Affinity", `${item.affinity >= 0 ? "+" : ""}${item.affinity}%`),
+      statToken("Element", item.element ? `${item.element.type} ${item.element.value}` : "None"),
+      statToken("Grade / Level", gradeLevelMarkup(item.grade, item.level, { compact: true }), { valueClass: "grade-level-value", statClass: "grade-level-stat" }),
+    ].join("");
+  }
+
+  return [
+    statToken("Defense", String(item.defense)),
+    statToken("Grade / Level", gradeLevelMarkup(item.grade, item.level, { compact: true }), { valueClass: "grade-level-value", statClass: "grade-level-stat" }),
+  ].join("");
+}
+
+function statToken(label, value, { valueClass = "", statClass = "" } = {}) {
+  return `<span class="${statClass}"><small>${label}</small><b class="${valueClass}">${value}</b></span>`;
 }
 
 function loadoutOutlookMarkup(evaluations) {
@@ -1145,7 +1206,7 @@ function weaponCard(weapon) {
       <div class="card-body">
         <div class="card-topline"><span class="type-label">${currentWeapon.type}</span><div class="gear-card-actions">${favoriteToggle(weapon)}${ownedToggle(weapon)}</div></div>
         <h2>${currentWeapon.name}</h2>
-        <p class="source-line">${sourceMonsterLabel(currentWeapon.sourceMonsterId)} series · Grade ${currentWeapon.grade} / L${currentWeapon.level}</p>
+        <p class="source-line">${sourceMonsterLabel(currentWeapon.sourceMonsterId)} series · ${gradeLevelMarkup(currentWeapon.grade, currentWeapon.level, { compact: true })}</p>
         <div class="stat-strip"><span>Attack <b>${currentWeapon.attack}</b></span><span>${currentWeapon.element ? `${currentWeapon.element.type} <b>${currentWeapon.element.value}</b>` : "No element"}</span></div>
         ${skillChips(currentWeapon.skills)}
         <p class="availability-note">Forge quantities are not published in the official guide.</p>
@@ -1159,7 +1220,7 @@ function armorCard(piece) {
   const slotCount = driftsmeltSlotCount(currentPiece);
   const unlockGrades = driftsmeltSlotUnlockGrades(currentPiece).filter((grade) => grade <= currentPiece.grade);
   const slotLabel = slotCount
-    ? `${slotCount} Driftsmelt slot${slotCount === 1 ? "" : "s"}${unlockGrades.length ? ` (G${unlockGrades.join(", G")})` : ""}`
+    ? `${slotCount} Driftsmelt slot${slotCount === 1 ? "" : "s"}${unlockGrades.length ? ` (${unlockGrades.map((grade) => `G${grade}`).join(", ")})` : ""}`
     : "No Driftsmelt slot";
   return `
     <article class="catalogue-card gear-card" id="gear-${currentPiece.id}" data-gear-card="${currentPiece.id}">
@@ -1167,7 +1228,7 @@ function armorCard(piece) {
       <div class="card-body">
         <div class="card-topline"><span class="type-label">${currentPiece.part}</span><div class="gear-card-actions">${favoriteToggle(piece)}${ownedToggle(piece)}</div></div>
         <h2>${currentPiece.name}</h2>
-        <p class="source-line">${sourceMonsterLabel(currentPiece.sourceMonsterId)} series · Grade ${currentPiece.grade} / L${currentPiece.level}</p>
+        <p class="source-line">${sourceMonsterLabel(currentPiece.sourceMonsterId)} series · ${gradeLevelMarkup(currentPiece.grade, currentPiece.level, { compact: true })}</p>
         <div class="stat-strip"><span>Defense <b>${currentPiece.defense}</b></span><span>${currentPiece.skills.length} skills</span><span>${slotLabel}</span></div>
         ${skillChips(currentPiece.skills)}
         ${driftsmeltEditor(piece, currentPiece)}
@@ -1281,7 +1342,7 @@ function buildCard(build, index, { saved = false } = {}) {
   return `
     <article class="build-card ${index === 0 ? "best-build" : ""}">
       <div class="build-hero">${imageMarkup(build.weapon, "build-weapon-image")}
-        <div><span class="type-label">${saved ? (index === 0 ? "Best saved loadout" : `Saved loadout ${index + 1}`) : (index === 0 ? "Top suggested build" : `Suggested build ${index + 1}`)}</span><h2>${saved ? build.savedLoadoutName : build.weapon.name}</h2><p>${saved ? `${build.weapon.name} · ` : ""}${build.weapon.type} · Grade ${build.weapon.grade} / L${build.weapon.level}</p></div>
+        <div><span class="type-label">${saved ? (index === 0 ? "Best saved loadout" : `Saved loadout ${index + 1}`) : (index === 0 ? "Top suggested build" : `Suggested build ${index + 1}`)}</span><h2>${saved ? build.savedLoadoutName : build.weapon.name}</h2><p>${saved ? `${build.weapon.name} · ` : ""}${build.weapon.type} · ${gradeLevelMarkup(build.weapon.grade, build.weapon.level, { compact: true })}</p></div>
       </div>
       <div class="build-score"><span class="status-pill ${effectiveness.tier}">${effectiveness.label}</span><div class="damage-total"><small>Estimated damage</small><strong>${damage.referenceDamage}</strong><em>per reference hit</em></div><div class="damage-breakdown"><span>${rawBreakdown}</span><span>${elementBreakdown}</span><span>${damage.affinity >= 0 ? "+" : ""}${damage.affinity}% affinity</span></div></div>
       <p class="build-calculation">${appliedSkills.length ? `Included: ${appliedSkills.join(" · ")}.` : "Included: weapon raw, affinity, and matching element."}${omittedSkills ? ` Not converted: ${omittedSkills}.` : ""}</p>
@@ -1350,7 +1411,7 @@ function monsterFeature(monster, build) {
   return `
     <div class="feature-visual">${imageMarkup(monster, "feature-monster-image")}</div>
     <div class="feature-copy"><span class="type-label">Current target</span><h1>${monster.name}</h1><p>${monster.species} · appears from grade ${monster.recommendedGrade}</p>
-      <div class="feature-tags"><span>${state.targetStars}-star target · baseline Grade ${requiredGrade}</span><span>Weak to ${monster.weakness.join(" / ")}</span>${fit ? `<span class="status-pill ${fit.tier}">${fit.label}</span>` : ""}</div>
+      <div class="feature-tags"><span>${state.targetStars}-star target · baseline ${gradeMark(requiredGrade, { compact: true })}</span><span>Weak to ${monster.weakness.join(" / ")}</span>${fit ? `<span class="status-pill ${fit.tier}">${fit.label}</span>` : ""}</div>
       <button class="primary-action" type="button" data-plan-monster="${monster.id}">Open hunt planner</button>
     </div>
   `;

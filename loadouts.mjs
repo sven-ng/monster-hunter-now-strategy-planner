@@ -1,5 +1,5 @@
-import { calculateFinalLoadoutStats, classifyBuildVsMonster, getGearAtGrade, getRequiredParts } from "./planner.mjs?v=2026-08-06-4be9116";
-import { applyDriftsmeltSkills, normalizeActiveDriftsmeltSkills } from "./driftsmelt.mjs?v=2026-08-06-4be9116";
+import { calculateFinalLoadoutStats, classifyBuildVsMonster, getGearAtGrade, getRequiredParts } from "./planner.mjs?v=2026-08-07-grade-colors";
+import { applyDriftsmeltSkills, normalizeActiveDriftsmeltSkills } from "./driftsmelt.mjs?v=2026-08-07-grade-colors";
 
 export function createLoadout({
   id,

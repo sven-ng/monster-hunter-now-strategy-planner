@@ -1,4 +1,4 @@
-import { canonicalSkillName } from "./skill-utils.mjs?v=2026-08-06-4be9116";
+import { canonicalSkillName } from "./skill-utils.mjs?v=2026-08-07-grade-colors";
 
 export function filterWeapons(items, filters, favorites = new Set(), forgedGear = new Set()) {
   return items.filter((weapon) => {

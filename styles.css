@@ -11,6 +11,16 @@
   --success: #93e7bb;
   --danger: #f6a59a;
   --shadow: 0 22px 70px rgba(0, 0, 0, 0.34);
+  --grade-1: #b9c7d0;
+  --grade-2: #7fd88f;
+  --grade-3: #63b9ff;
+  --grade-4: #b08cff;
+  --grade-5: #ff7070;
+  --grade-6: #ffb85c;
+  --grade-7: #ffd35c;
+  --grade-8: #ff8fcb;
+  --grade-9: #7beef6;
+  --grade-10: #f5fbff;
 }
 
 * { box-sizing: border-box; }
@@ -75,6 +85,21 @@ button, input, select { font: inherit; }
 .feature-tags, .skill-chips, .drop-preview { display: flex; flex-wrap: wrap; gap: 7px; }
 .feature-tags > span, .skill-chips span, .status-pill, .grade-label { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 9px; font-size: 0.7rem; font-weight: 700; }
 .feature-tags > span, .skill-chips span { color: #cceee7; border: 1px solid rgba(118, 228, 209, 0.18); background: rgba(118, 228, 209, 0.09); }
+.grade-mark, .level-mark, .grade-arrow { display: inline-flex; align-items: center; vertical-align: middle; }
+.grade-mark { gap: 0; padding: 0.28rem 0.54rem; border: 1px solid color-mix(in srgb, currentColor 35%, rgba(255, 255, 255, 0.1)); border-radius: 999px; background: color-mix(in srgb, currentColor 14%, rgba(5, 18, 24, 0.94)); color: var(--ink); font-size: 0.72em; font-weight: 900; letter-spacing: 0.08em; line-height: 1; text-transform: uppercase; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04); }
+.grade-mark.is-compact { padding: 0.22rem 0.45rem; font-size: 0.68em; }
+.level-mark { margin-left: 0.38rem; color: #d8e8ec; font-size: 0.9em; font-weight: 700; white-space: nowrap; }
+.grade-arrow { margin: 0 0.35rem; color: var(--muted); font-size: 0.82em; font-weight: 700; }
+.grade-tier-1 { color: var(--grade-1); }
+.grade-tier-2 { color: var(--grade-2); }
+.grade-tier-3 { color: var(--grade-3); }
+.grade-tier-4 { color: var(--grade-4); }
+.grade-tier-5 { color: var(--grade-5); }
+.grade-tier-6 { color: var(--grade-6); }
+.grade-tier-7 { color: var(--grade-7); }
+.grade-tier-8 { color: var(--grade-8); }
+.grade-tier-9 { color: var(--grade-9); }
+.grade-tier-10 { color: var(--grade-10); text-shadow: 0 0 12px rgba(245, 251, 255, 0.18); }
 .skill-chip { display: inline-flex; align-items: center; border: 1px solid rgba(118, 228, 209, 0.18); border-radius: 999px; padding: 6px 9px; color: #cceee7; background: rgba(118, 228, 209, 0.09); font-size: 0.7rem; font-weight: 700; cursor: pointer; }
 .skill-chip:hover, .skill-chip:focus-visible { border-color: rgba(118, 228, 209, 0.52); background: rgba(118, 228, 209, 0.16); outline: none; }
 .primary-action, .card-action { margin-top: 18px; border: 1px solid var(--aqua); border-radius: 10px; padding: 10px 13px; color: #062523; background: var(--aqua); cursor: pointer; font-size: 0.78rem; font-weight: 800; }
@@ -166,16 +191,26 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--aqua-dee
 .summary-gear-panel { grid-column: 1 / -1; display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: rgba(5, 18, 24, 0.42); }
 .summary-gear-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .summary-gear-heading .secondary-action { margin: 0; }
-.summary-gear-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
-.summary-gear-list li { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px 0; border-top: 1px solid rgba(149, 202, 212, 0.1); }
-.summary-gear-list li:first-child { padding-top: 0; border-top: 0; }
-.summary-gear-image { width: 42px; height: 42px; object-fit: contain; }
-.summary-gear-copy { min-width: 0; display: grid; gap: 4px; }
+.summary-gear-list { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.summary-gear-list li { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start; min-height: 100%; padding: 12px; border: 1px solid rgba(149, 202, 212, 0.1); border-radius: 14px; background: rgba(10, 31, 39, 0.7); }
+.summary-gear-image { width: 52px; height: 52px; object-fit: contain; margin-bottom: 2px; }
+.summary-gear-copy { min-width: 0; display: grid; gap: 4px; grid-column: 1 / -1; }
 .summary-gear-copy > span { color: var(--aqua); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
 .summary-gear-copy > b { font-size: 0.88rem; }
-.summary-gear-copy > small { color: var(--muted); font-size: 0.68rem; }
-.summary-gear-copy .skill-chips { margin-top: 2px; }
-.summary-gear-link { align-self: center; border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; color: var(--muted); background: rgba(2, 15, 19, 0.56); font-size: 0.68rem; font-weight: 700; text-decoration: none; }
+.summary-gear-section { display: grid; gap: 6px; margin-top: 6px; }
+.summary-gear-section > strong { color: #d8e8ec; font-size: 0.63rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.summary-gear-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.summary-gear-stats span { display: grid; gap: 2px; min-width: 0; padding: 8px 9px; border: 1px solid rgba(118, 228, 209, 0.12); border-radius: 10px; background: rgba(118, 228, 209, 0.06); }
+.summary-gear-stats small { color: var(--muted); font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.summary-gear-stats b { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--aqua); font-size: 0.8rem; line-height: 1.2; }
+.summary-gear-stats .grade-level-stat { padding-top: 7px; padding-bottom: 7px; }
+.summary-gear-stats b.grade-level-value { flex-wrap: nowrap; gap: 4px; }
+.summary-gear-stats b.grade-level-value .grade-mark { padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; font-size: 0.72rem; }
+.summary-gear-stats b.grade-level-value .level-mark { margin-left: 0; color: #d8e8ec; font-size: 0.72rem; }
+.summary-gear-copy .skill-chips { margin-top: 0; }
+.summary-gear-meta { margin: 0; color: var(--muted); font-size: 0.66rem; }
+.summary-gear-empty { margin: 0; color: var(--muted); font-size: 0.66rem; line-height: 1.4; }
+.summary-gear-link { justify-self: end; align-self: start; border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; color: var(--muted); background: rgba(2, 15, 19, 0.56); font-size: 0.68rem; font-weight: 700; text-decoration: none; }
 .summary-gear-link:hover { border-color: var(--aqua); color: var(--aqua); }
 .loadout-summary p { margin: 5px 0 0; color: var(--muted); font-size: 0.76rem; }
 .loadout-summary-stats { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 16px; }
@@ -186,6 +221,8 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--aqua-dee
 .final-stat-grid span:last-child { border-right: 0; }
 .final-stat-grid small, .final-stat-grid em { overflow: hidden; color: var(--muted); font-size: 0.63rem; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
 .final-stat-grid b { overflow: hidden; color: var(--aqua); font-size: 0.92rem; text-overflow: ellipsis; white-space: nowrap; }
+.summary-skill-panel { grid-column: 1 / -1; display: grid; gap: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 13px; background: rgba(5, 18, 24, 0.34); }
+.summary-skill-panel .eyebrow { margin-bottom: 0; }
 .damage-assumptions, .damage-method { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 0.68rem; line-height: 1.45; }
 .damage-method { margin: -4px 0 12px; }
 .compact-heading { margin-top: 8px; }
@@ -281,6 +318,18 @@ button.monster-focus-card:hover, button.monster-focus-card:focus-visible { borde
 .card-topline { display: flex; justify-content: space-between; gap: 8px; align-items: start; min-height: 22px; }
 .card-topline .type-label { margin: 0; font-size: 0.58rem; }
 .grade-label { padding: 4px 6px; color: var(--muted); border: 1px solid var(--line); font-size: 0.58rem; white-space: nowrap; }
+.source-line .grade-mark,
+.feature-tags .grade-mark,
+.summary-gear-copy .grade-mark,
+.build-hero .grade-mark,
+.upgrade-card .grade-mark,
+.library-gear-list .grade-mark,
+.loadout-driftsmelt-piece .grade-mark { transform: translateY(-0.02rem); }
+.summary-gear-copy small .level-mark,
+.source-line .level-mark,
+.build-hero .level-mark,
+.upgrade-card .level-mark,
+.library-gear-list .level-mark { color: inherit; opacity: 0.95; }
 .catalogue-card h2 { font-size: 1.22rem; line-height: 1.02; }
 .source-line { margin: 7px 0 10px; color: var(--muted); font-size: 0.7rem; line-height: 1.35; }
 .stat-strip { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 9px; }
@@ -390,7 +439,7 @@ button.monster-focus-card:hover, button.monster-focus-card:focus-visible { borde
   .review-controls { align-items: stretch; flex-direction: column; }
   .loadout-summary { grid-template-columns: 1fr; }
   .summary-gear-heading { align-items: start; flex-direction: column; }
-  .summary-gear-list li { grid-template-columns: 42px minmax(0, 1fr); }
+  .summary-gear-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .summary-gear-link { justify-self: start; }
   .loadout-summary-stats { justify-content: flex-start; }
   .final-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

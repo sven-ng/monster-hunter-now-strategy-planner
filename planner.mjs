@@ -1,6 +1,6 @@
-import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-06-4be9116";
-import { applyDriftsmeltSkills } from "./driftsmelt.mjs?v=2026-08-06-4be9116";
-import { canonicalSkillName } from "./skill-utils.mjs?v=2026-08-06-4be9116";
+import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-07-grade-colors";
+import { applyDriftsmeltSkills } from "./driftsmelt.mjs?v=2026-08-07-grade-colors";
+import { canonicalSkillName } from "./skill-utils.mjs?v=2026-08-07-grade-colors";
 
 const ELEMENT_SKILL_NAMES = new Set([
   "Fire Attack",

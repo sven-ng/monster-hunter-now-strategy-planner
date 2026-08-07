@@ -1,4 +1,4 @@
-import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-06-4be9116";
+import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-07-grade-colors";
 
 const SKILL_NAME_ALIASES = {
   Powerhouse: "Attack Efficacy",

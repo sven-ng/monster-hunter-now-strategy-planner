@@ -1,5 +1,5 @@
-import { calculateFinalLoadoutStats, getGearAtGrade, recommendedGradeForStars } from "./planner.mjs?v=2026-08-06-4be9116";
-import { hydrateLoadout } from "./loadouts.mjs?v=2026-08-06-4be9116";
+import { calculateFinalLoadoutStats, getGearAtGrade, recommendedGradeForStars } from "./planner.mjs?v=2026-08-07-grade-colors";
+import { hydrateLoadout } from "./loadouts.mjs?v=2026-08-07-grade-colors";
 
 export function getNextGearUpgrade(gear) {
   const gradeIndex = gear.gradeOptions.findIndex((option) => option.grade === gear.grade);
