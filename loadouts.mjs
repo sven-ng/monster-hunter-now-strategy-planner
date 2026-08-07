@@ -1,5 +1,6 @@
-import { calculateFinalLoadoutStats, classifyBuildVsMonster, getGearAtGrade, getRequiredParts } from "./planner.mjs?v=2026-08-07-grade-colors";
-import { applyDriftsmeltSkills, normalizeActiveDriftsmeltSkills } from "./driftsmelt.mjs?v=2026-08-07-grade-colors";
+import { calculateFinalLoadoutStats, classifyBuildVsMonster, getGearAtGrade, getRequiredParts } from "./planner.mjs?v=2026-08-07-skill-rename-refresh";
+import { applyDriftsmeltSkills, normalizeActiveDriftsmeltSkills } from "./driftsmelt.mjs?v=2026-08-07-skill-rename-refresh";
+import { applyWeaponStyleProfile } from "./weapon-style.mjs?v=2026-08-07-skill-rename-refresh";
 
 export function createLoadout({
   id,
@@ -11,6 +12,7 @@ export function createLoadout({
   driftsmeltSkills = {},
   activeDriftsmeltSkills = driftsmeltSkills,
   driftsmeltSkillPools = {},
+  weaponStyleProfiles = {},
   origin = "manual",
   data,
 }) {
@@ -39,6 +41,7 @@ export function createLoadout({
       const skillPool = driftsmeltSkillPools[piece.id] ?? selectedSkills;
       return [piece.id, normalizeActiveDriftsmeltSkills(selectedSkills, atGrade.driftsmeltSlots, skillPool)];
     })),
+    weaponStyleProfile: weaponStyleProfiles[weapon.id] ?? null,
     origin,
     createdAt: new Date().toISOString(),
   };
@@ -55,6 +58,7 @@ export function createLoadoutFromBuild({ id, name, build, data, origin = "sugges
       { grade: gear.grade, level: gear.level },
     ])),
     activeDriftsmeltSkills: Object.fromEntries(build.armor.map((piece) => [piece.id, piece.driftsmeltSkills ?? []])),
+    weaponStyleProfiles: build.weapon?.styleProfile ? { [build.weapon.id]: build.weapon.styleProfile } : {},
     origin,
     data,
   });
@@ -77,15 +81,20 @@ export function replaceLoadout(loadouts, updatedLoadout) {
   return loadouts.map((loadout) => loadout.id === updatedLoadout.id ? updatedLoadout : loadout);
 }
 
-export function hydrateLoadout(loadout, data) {
+export function hydrateLoadout(loadout, data, { weaponStyleProfiles = {} } = {}) {
   const weapon = data.weapons.find((item) => item.id === loadout.weaponId);
   const armor = getRequiredParts(data).map((part) => data.armor.find((item) => item.id === loadout.armorIds[part]));
   if (!weapon || armor.some((piece) => !piece)) {
     return null;
   }
 
+  const styleProfile = weaponStyleProfiles[weapon.id] ?? loadout.weaponStyleProfile;
+
   return {
-    weapon: getGearAtGrade(weapon, progressFor(loadout, weapon.id).grade, progressFor(loadout, weapon.id).level),
+    weapon: applyWeaponStyleProfile(
+      getGearAtGrade(weapon, progressFor(loadout, weapon.id).grade, progressFor(loadout, weapon.id).level),
+      styleProfile,
+    ),
     armor: armor.map((piece) => applyDriftsmeltSkills(
       getGearAtGrade(piece, progressFor(loadout, piece.id).grade, progressFor(loadout, piece.id).level),
       loadout.driftsmeltSkills?.[piece.id],
@@ -93,8 +102,8 @@ export function hydrateLoadout(loadout, data) {
   };
 }
 
-export function evaluateLoadout(loadout, { data, targetStars, assumeWeakPoint = false }) {
-  const build = hydrateLoadout(loadout, data);
+export function evaluateLoadout(loadout, { data, targetStars, assumeWeakPoint = false, weaponStyleProfiles = {} }) {
+  const build = hydrateLoadout(loadout, data, { weaponStyleProfiles });
   if (!build) {
     return [];
   }
@@ -113,11 +122,12 @@ export function evaluateSavedLoadouts(loadouts, {
   targetMonsterId,
   targetStars,
   assumeWeakPoint = false,
+  weaponStyleProfiles = {},
 }) {
   const targetMonster = data.monsters.find((monster) => monster.id === targetMonsterId) ?? data.monsters[0];
   return loadouts
     .map((loadout) => {
-      const build = hydrateLoadout(loadout, data);
+      const build = hydrateLoadout(loadout, data, { weaponStyleProfiles });
       if (!build) return null;
       const damage = calculateFinalLoadoutStats(build, { monster: targetMonster, assumeWeakPoint });
       return {

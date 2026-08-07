@@ -1,6 +1,7 @@
-import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-07-grade-colors";
-import { applyDriftsmeltSkills } from "./driftsmelt.mjs?v=2026-08-07-grade-colors";
-import { canonicalSkillName } from "./skill-utils.mjs?v=2026-08-07-grade-colors";
+import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-07-skill-rename-refresh";
+import { applyDriftsmeltSkills } from "./driftsmelt.mjs?v=2026-08-07-skill-rename-refresh";
+import { canonicalSkillName } from "./skill-utils.mjs?v=2026-08-07-skill-rename-refresh";
+import { applyWeaponStyleProfile, normalizeWeaponStyleProfile } from "./weapon-style.mjs?v=2026-08-07-skill-rename-refresh";
 
 const ELEMENT_SKILL_NAMES = new Set([
   "Fire Attack",
@@ -29,6 +30,8 @@ const ATTACK_SKILL_SCORES = {
 const ELEMENT_DAMAGE_TYPES = new Set(["Fire", "Water", "Thunder", "Ice", "Dragon"]);
 const ELEMENT_ATTACK_BONUSES = [0, 50, 100, 200, 350, 500];
 const ATTACK_BOOST_BONUSES = [0, 50, 100, 150, 200, 300];
+const ADVANCED_ATTACK_BOOST_BONUSES = [0, 150, 350];
+const ADVANCED_ELEMENT_ATTACK_BONUSES = [0, 200, 400];
 const ATTACK_EFFICACY_MULTIPLIERS = [0, 0.1, 0.15, 0.25];
 const CRITICAL_EYE_BONUSES = [0, 10, 15, 20, 30, 40];
 const WEAKNESS_EXPLOIT_BONUSES = [0, 20, 25, 30, 40, 50];
@@ -130,8 +133,11 @@ export function calculateWeaponPower(weapon, aggregatedSkills, targetMonster) {
   const baseAttack = weapon.attack;
   const skillMap = new Map(aggregatedSkills.map((skill) => [skill.name, skill.level]));
   const attackBoostLevel = skillMap.get("Attack Boost") ?? 0;
+  const advancedAttackBoostLevel = attackBoostLevel >= 5 ? skillMap.get("Advanced Attack Boost") ?? 0 : 0;
   const attackEfficacyLevel = skillMap.get("Attack Efficacy") ?? 0;
-  const rawAttack = Math.round((baseAttack + bonusAt(ATTACK_BOOST_BONUSES, attackBoostLevel))
+  const rawAttack = Math.round((baseAttack
+      + bonusAt(ATTACK_BOOST_BONUSES, attackBoostLevel)
+      + bonusAt(ADVANCED_ATTACK_BOOST_BONUSES, advancedAttackBoostLevel))
     * (1 + bonusAt(ATTACK_EFFICACY_MULTIPLIERS, attackEfficacyLevel)));
   const affinityAttack = Math.round(rawAttack * (weapon.affinity / 100) * 0.25);
 
@@ -140,8 +146,12 @@ export function calculateWeaponPower(weapon, aggregatedSkills, targetMonster) {
   if (weapon.element && targetMonster.weakness.includes(weapon.element.type)) {
     weaknessBonus += 120;
     const matchingSkillName = `${weapon.element.type} Attack`;
+    const advancedSkillName = `Advanced ${weapon.element.type} Attack`;
     if (skillMap.has(matchingSkillName)) {
       elementValue += ELEMENT_ATTACK_BONUSES[Math.min(skillMap.get(matchingSkillName), 5)];
+      if ((skillMap.get(matchingSkillName) ?? 0) >= 5) {
+        elementValue += bonusAt(ADVANCED_ELEMENT_ATTACK_BONUSES, skillMap.get(advancedSkillName) ?? 0);
+      }
     }
   } else if (weapon.element && (weapon.element.type === "Poison" || weapon.element.type === "Paralysis")) {
     weaknessBonus += targetMonster.weakness.includes(weapon.element.type) ? 70 : 20;
@@ -168,43 +178,56 @@ export function calculateFinalLoadoutStats(build, { monster = null, assumeWeakPo
   const aggregatedSkills = aggregateSkills([build.weapon, ...build.armor]);
   const skillMap = new Map(aggregatedSkills.map((skill) => [skill.name, skill.level]));
   const attackBoostLevel = skillMap.get("Attack Boost") ?? 0;
+  const advancedAttackBoostLevel = attackBoostLevel >= 5 ? skillMap.get("Advanced Attack Boost") ?? 0 : 0;
   const attackEfficacyLevel = skillMap.get("Attack Efficacy") ?? 0;
   const criticalEyeLevel = skillMap.get("Critical Eye") ?? 0;
   const weaknessExploitLevel = skillMap.get("Weakness Exploit") ?? 0;
   const criticalBoostLevel = skillMap.get("Critical Boost") ?? 0;
   const rawSkillBonus = bonusAt(ATTACK_BOOST_BONUSES, attackBoostLevel);
+  const advancedRawSkillBonus = bonusAt(ADVANCED_ATTACK_BOOST_BONUSES, advancedAttackBoostLevel);
   const attackEfficacyMultiplier = bonusAt(ATTACK_EFFICACY_MULTIPLIERS, attackEfficacyLevel);
   const criticalEyeBonus = bonusAt(CRITICAL_EYE_BONUSES, criticalEyeLevel);
   const weaknessExploitBonus = assumeWeakPoint ? bonusAt(WEAKNESS_EXPLOIT_BONUSES, weaknessExploitLevel) : 0;
   const affinity = clamp(build.weapon.affinity + criticalEyeBonus + weaknessExploitBonus, -100, 100);
   const criticalMultiplier = bonusAt(CRITICAL_MULTIPLIERS, criticalBoostLevel);
-  const rawAttack = Math.round((build.weapon.attack + rawSkillBonus) * (1 + attackEfficacyMultiplier));
+  const rawAttack = Math.round((build.weapon.attack + rawSkillBonus + advancedRawSkillBonus) * (1 + attackEfficacyMultiplier));
   const expectedRaw = rawAttack * expectedAffinityMultiplier(affinity, criticalMultiplier);
   const weaponElement = build.weapon.element;
   const matchingElement = Boolean(monster && weaponElement && ELEMENT_DAMAGE_TYPES.has(weaponElement.type)
     && monster.weakness.includes(weaponElement.type));
   const elementalSkillLevel = weaponElement ? skillMap.get(`${weaponElement.type} Attack`) ?? 0 : 0;
+  const advancedElementalSkillLevel = weaponElement && elementalSkillLevel >= 5
+    ? skillMap.get(`Advanced ${weaponElement.type} Attack`) ?? 0
+    : 0;
   const elementalSkillBonus = weaponElement && ELEMENT_DAMAGE_TYPES.has(weaponElement.type)
     ? bonusAt(ELEMENT_ATTACK_BONUSES, elementalSkillLevel)
     : 0;
+  const advancedElementalSkillBonus = weaponElement && ELEMENT_DAMAGE_TYPES.has(weaponElement.type) && elementalSkillLevel >= 5
+    ? bonusAt(ADVANCED_ELEMENT_ATTACK_BONUSES, advancedElementalSkillLevel)
+    : 0;
   const potentialElement = weaponElement && ELEMENT_DAMAGE_TYPES.has(weaponElement.type)
-    ? weaponElement.value + elementalSkillBonus
+    ? weaponElement.value + elementalSkillBonus + advancedElementalSkillBonus
     : 0;
   const effectiveElement = matchingElement ? potentialElement : 0;
   const defense = build.armor.reduce((total, piece) => total + piece.defense, 0);
   const modeledSkillNames = new Set([
     "Attack Boost",
+    "Advanced Attack Boost",
     "Attack Efficacy",
     "Critical Eye",
     "Weakness Exploit",
     "Critical Boost",
     ...(weaponElement && ELEMENT_DAMAGE_TYPES.has(weaponElement.type) ? [`${weaponElement.type} Attack`] : []),
+    ...(weaponElement && ELEMENT_DAMAGE_TYPES.has(weaponElement.type) ? [`Advanced ${weaponElement.type} Attack`] : []),
   ]);
+  const styleProfile = normalizeWeaponStyleProfile(build.weapon.styleProfile);
 
   return {
     aggregatedSkills,
     rawAttack,
     rawSkillBonus,
+    advancedAttackBoostLevel,
+    advancedRawSkillBonus,
     attackEfficacyLevel,
     attackEfficacyMultiplier,
     baseAffinity: build.weapon.affinity,
@@ -215,6 +238,8 @@ export function calculateFinalLoadoutStats(build, { monster = null, assumeWeakPo
     expectedRaw: Math.round(expectedRaw),
     weaponElement,
     elementalSkillBonus,
+    advancedElementalSkillLevel,
+    advancedElementalSkillBonus,
     potentialElement,
     effectiveElement,
     matchingElement,
@@ -222,11 +247,12 @@ export function calculateFinalLoadoutStats(build, { monster = null, assumeWeakPo
     referenceDamage: Math.round(expectedRaw + effectiveElement),
     statusBuildup: weaponElement && !ELEMENT_DAMAGE_TYPES.has(weaponElement.type) ? weaponElement : null,
     unmodeledSkills: aggregatedSkills.filter((skill) => !modeledSkillNames.has(skill.name)),
+    styleProfile,
   };
 }
 
 function bonusAt(values, level) {
-  return values[Math.max(0, Math.min(5, Number(level) || 0))];
+  return values[Math.max(0, Math.min(values.length - 1, Number(level) || 0))] ?? 0;
 }
 
 function expectedAffinityMultiplier(affinity, criticalMultiplier) {
@@ -263,6 +289,7 @@ export function recommendBuilds({
   gearGrades = {},
   gearProgress = {},
   driftsmeltSkillPools = {},
+  weaponStyleProfiles = {},
   assumeWeakPoint = false,
   ownedWeaponsOnly = false,
   data = GAME_DATA,
@@ -272,7 +299,8 @@ export function recommendBuilds({
   const ownsGear = (gear) => ownedGearIds.has(gear.id);
   const selectedGear = (gear) => {
     const progress = gearProgress[gear.id];
-    return getGearAtGrade(gear, progress?.grade ?? gearGrades[gear.id] ?? gear.grade, progress?.level);
+    const selected = getGearAtGrade(gear, progress?.grade ?? gearGrades[gear.id] ?? gear.grade, progress?.level);
+    return "attack" in selected ? applyWeaponStyleProfile(selected, weaponStyleProfiles[gear.id]) : selected;
   };
   const weaponPool = data.weapons.filter((weapon) => {
     if (preferredWeaponType !== "all" && weapon.type !== preferredWeaponType) {

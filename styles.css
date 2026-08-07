@@ -361,6 +361,11 @@ button.monster-focus-card:hover, button.monster-focus-card:focus-visible { borde
 .loadout-driftsmelt { margin: 18px 0; padding: 16px; border: 1px solid rgba(118, 228, 209, 0.2); border-radius: 14px; background: rgba(7, 30, 36, 0.7); }
 .loadout-driftsmelt-heading h3 { margin: 2px 0 4px; font-family: "Iowan Old Style", "Palatino Linotype", serif; }
 .loadout-driftsmelt-heading p { margin: 0; color: #a8c3c4; font-size: 0.8rem; }
+.loadout-style-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.loadout-style-grid label { display: grid; gap: 6px; color: #cde8e5; font-size: 0.72rem; font-weight: 700; }
+.loadout-style-grid input, .loadout-style-grid textarea, .loadout-style-grid select { width: 100%; border: 1px solid rgba(118, 228, 209, 0.24); border-radius: 9px; padding: 9px 10px; color: var(--ink); background: rgba(1, 12, 16, 0.72); }
+.loadout-style-grid textarea { resize: vertical; min-height: 84px; }
+.loadout-style-grid .loadout-style-notes { grid-column: 1 / -1; }
 .loadout-driftsmelt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin-top: 12px; }
 .loadout-driftsmelt-piece { padding: 10px; border: 1px solid rgba(118, 228, 209, 0.16); border-radius: 10px; background: rgba(5, 20, 25, 0.45); }
 .loadout-driftsmelt-piece > b, .loadout-driftsmelt-piece > span { display: block; }
@@ -396,6 +401,7 @@ button.monster-focus-card:hover, button.monster-focus-card:focus-visible { borde
   .build-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .outlook-grid { grid-template-columns: repeat(2, 1fr); }
   .builder-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .loadout-style-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .catalogue-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .monster-focus-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -434,6 +440,7 @@ button.monster-focus-card:hover, button.monster-focus-card:focus-visible { borde
   .gear-image, .monster-image, .material-image { min-height: 174px; }
   .builder-heading { align-items: stretch; flex-direction: column; }
   .builder-grid { grid-template-columns: 1fr; }
+  .loadout-style-grid { grid-template-columns: 1fr; }
   .catalogue-toolbar { grid-template-columns: 1fr; }
   .section-heading { align-items: stretch; flex-direction: column; }
   .review-controls { align-items: stretch; flex-direction: column; }

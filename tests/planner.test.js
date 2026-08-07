@@ -7,6 +7,8 @@ import { createProfileExport, parseProfileExport } from "../profile-transfer.mjs
 import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterWeapons } from "../catalogue-filters.mjs";
 import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "../loadouts.mjs";
 import { buildUpgradePlan, getNextGearUpgrade } from "../upgrade-planner.mjs";
+import { isRiftborneMaterial, monsterHasRiftborne, normalizeWeaponStyleProfile, weaponSupportsStyle } from "../weapon-style.mjs";
+import { canonicalSkillName, skillDescription } from "../skill-utils.mjs";
 import {
   aggregateSkills,
   applySuggestedDriftsmeltSkills,
@@ -410,4 +412,98 @@ test("suggested builds can be saved as grade-and-level upgrade targets", () => {
   assert.equal(hydrated.weapon.grade, suggested.weapon.grade);
   assert.equal(hydrated.weapon.level, suggested.weapon.level);
   assert.deepEqual(hydrated.armor.map((piece) => piece.id), suggested.armor.map((piece) => piece.id));
+});
+
+test("Riftborne helpers identify live monster and weapon style routes from the official snapshot", () => {
+  const lagombi = GAME_DATA.monsters.find((monster) => monster.id === "lagombi");
+  const lagombiWeapon = GAME_DATA.weapons.find((weapon) => weapon.sourceMonsterId === "lagombi");
+  const lagombiRiftborneMaterial = GAME_DATA.materials.find((material) => material.id === "lagombi_riftborne_material");
+  const indexes = {
+    materialById: Object.fromEntries(GAME_DATA.materials.map((material) => [material.id, material])),
+    monsterById: Object.fromEntries(GAME_DATA.monsters.map((monster) => [monster.id, monster])),
+  };
+
+  assert.ok(isRiftborneMaterial(lagombiRiftborneMaterial));
+  assert.equal(monsterHasRiftborne(lagombi, indexes.materialById), true);
+  assert.equal(weaponSupportsStyle(lagombiWeapon, indexes.monsterById, indexes.materialById), true);
+});
+
+test("weapon style profiles can be saved on a loadout and increase final stats", () => {
+  const weapon = GAME_DATA.weapons.find((item) => item.id === "lagombi_longsword");
+  const armor = getRequiredParts(GAME_DATA).map((part) => GAME_DATA.armor.find((item) => item.part === part));
+  const styleProfile = normalizeWeaponStyleProfile({
+    styleName: "Balanced",
+    styleLevel: 2,
+    rawBonus: 120,
+    affinityBonus: 15,
+    elementBonus: 80,
+  });
+  const loadout = createLoadout({
+    id: "styled-lagombi",
+    name: "Styled Lagombi",
+    weaponId: weapon.id,
+    armorIds: Object.fromEntries(armor.map((piece) => [piece.part, piece.id])),
+    gearProgress: Object.fromEntries([
+      [weapon.id, { grade: 8, level: 1 }],
+      ...armor.map((piece) => [piece.id, { grade: piece.grade, level: piece.level }]),
+    ]),
+    weaponStyleProfiles: { [weapon.id]: styleProfile },
+    data: GAME_DATA,
+  });
+  const styledBuild = hydrateLoadout(loadout, GAME_DATA);
+  const baseBuild = hydrateLoadout({ ...loadout, weaponStyleProfile: null }, GAME_DATA);
+  const styledStats = calculateFinalLoadoutStats(styledBuild);
+  const baseStats = calculateFinalLoadoutStats(baseBuild);
+
+  assert.deepEqual(styledStats.styleProfile, styleProfile);
+  assert.equal(styledBuild.weapon.attack, baseBuild.weapon.attack + 120);
+  assert.equal(styledBuild.weapon.affinity, baseBuild.weapon.affinity + 15);
+  assert.equal(styledBuild.weapon.element.value, baseBuild.weapon.element.value + 80);
+  assert.ok(styledStats.referenceDamage > baseStats.referenceDamage);
+});
+
+test("Advanced Ice Attack is normalized from the legacy secret name and increases element only at Ice Attack Lv5+", () => {
+  const weapon = {
+    attack: 1000,
+    affinity: 0,
+    element: { type: "Ice", value: 700 },
+    styleProfile: null,
+  };
+  const weakMonster = { weakness: ["Ice"] };
+  const activeBuild = {
+    weapon,
+    armor: [{
+      defense: 100,
+      skills: [
+        { name: "Ice Attack", level: 5 },
+        { name: "Ice Attack Boost Secret", level: 1 },
+      ],
+    }],
+  };
+  const inactiveBuild = {
+    weapon,
+    armor: [{
+      defense: 100,
+      skills: [
+        { name: "Ice Attack", level: 4 },
+        { name: "Ice Attack Boost Secret", level: 1 },
+      ],
+    }],
+  };
+  const activeStats = calculateFinalLoadoutStats(activeBuild, { monster: weakMonster });
+  const inactiveStats = calculateFinalLoadoutStats(inactiveBuild, { monster: weakMonster });
+
+  assert.equal(canonicalSkillName("Ice Attack Boost Secret"), "Advanced Ice Attack");
+  assert.match(skillDescription("Ice Attack Boost Secret", 1), /\+?200|200/);
+  assert.equal(activeStats.elementalSkillBonus, 500);
+  assert.equal(activeStats.advancedElementalSkillBonus, 200);
+  assert.equal(activeStats.potentialElement, 1400);
+  assert.equal(inactiveStats.elementalSkillBonus, 350);
+  assert.equal(inactiveStats.advancedElementalSkillBonus, 0);
+});
+
+test("Velkhana Armor is normalized to Velkhana Aegis with current official detail text", () => {
+  assert.equal(canonicalSkillName("Velkhana Armor"), "Velkhana Aegis");
+  assert.match(skillDescription("Velkhana Armor", 1), /ice element attack power by 10%/i);
+  assert.match(skillDescription("Velkhana Armor", 2), /40% of maximum health/i);
 });

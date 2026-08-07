@@ -1,11 +1,12 @@
-import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-07-grade-colors";
-import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterWeapons } from "./catalogue-filters.mjs?v=2026-08-07-grade-colors";
-import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmeltSkillPool } from "./driftsmelt.mjs?v=2026-08-07-grade-colors";
-import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs?v=2026-08-07-grade-colors";
-import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs?v=2026-08-07-grade-colors";
-import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-07-grade-colors";
-import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions } from "./skill-utils.mjs?v=2026-08-07-grade-colors";
-import { buildUpgradePlan } from "./upgrade-planner.mjs?v=2026-08-07-grade-colors";
+import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-07-skill-rename-refresh";
+import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterMaterials, filterMonsters, filterWeapons } from "./catalogue-filters.mjs?v=2026-08-07-skill-rename-refresh";
+import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmeltSkillPool } from "./driftsmelt.mjs?v=2026-08-07-skill-rename-refresh";
+import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs?v=2026-08-07-skill-rename-refresh";
+import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs?v=2026-08-07-skill-rename-refresh";
+import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-07-skill-rename-refresh";
+import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions } from "./skill-utils.mjs?v=2026-08-07-skill-rename-refresh";
+import { buildUpgradePlan } from "./upgrade-planner.mjs?v=2026-08-07-skill-rename-refresh";
+import { applyWeaponStyleProfile, defaultWeaponStyleProfile, hasWeaponStyleBonus, isRiftborneMaterial, monsterHasRiftborne, normalizeWeaponStyleProfile, weaponSupportsStyle } from "./weapon-style.mjs?v=2026-08-07-skill-rename-refresh";
 import {
   aggregateSkills,
   calculateFinalLoadoutStats,
@@ -16,7 +17,7 @@ import {
   getRequiredParts,
   recommendedGradeForStars,
   recommendBuilds,
-} from "./planner.mjs";
+} from "./planner.mjs?v=2026-08-07-skill-rename-refresh";
 
 const OWNED_STORAGE_KEY = "mhnow-strategy-planner-owned-gear";
 const GEAR_PROGRESS_STORAGE_KEY = "mhnow-strategy-planner-gear-progress";
@@ -26,6 +27,7 @@ const TARGET_STARS_STORAGE_KEY = "mhnow-strategy-planner-target-stars";
 const LOADOUTS_STORAGE_KEY = "mhnow-strategy-planner-saved-loadouts";
 const FAVORITES_STORAGE_KEY = "mhnow-strategy-planner-favorite-gear";
 const DRIFTSMELT_STORAGE_KEY = "mhnow-strategy-planner-driftsmelt-skills";
+const WEAPON_STYLE_STORAGE_KEY = "mhnow-strategy-planner-weapon-styles";
 const GITHUB_SYNC_STORAGE_KEY = "mhnow-strategy-planner-github-sync";
 const { materialById, monsterById, gearById } = createIndexes(GAME_DATA);
 const page = document.body.dataset.page ?? "home";
@@ -50,13 +52,16 @@ const state = {
   assumeWeakPoint: false,
   favoriteGearIds: loadFavoriteGearIds(),
   driftsmeltSkillPools: loadDriftsmeltSkillPools(),
+  weaponStyleProfiles: loadWeaponStyleProfiles(),
   githubSync: loadGithubSyncSettings(),
   loadoutDriftsmeltSelections: {},
   openDriftsmeltPoolIds: new Set(),
   searches: { weapons: "", armor: "", monsters: "", materials: "" },
   catalogueFilters: {
-    weapons: { type: "all", element: "all", monster: "all", favoritesOnly: false, forgedOnly: false },
+    weapons: { type: "all", element: "all", monster: "all", styleOnly: false, favoritesOnly: false, forgedOnly: false },
     armor: { skill: "all", monster: "all", driftsmeltSlots: "all", favoritesOnly: false, forgedOnly: false },
+    monsters: { riftborneOnly: false },
+    materials: { riftborneOnly: false },
   },
 };
 
@@ -101,13 +106,17 @@ const elements = {
   weaponTypeCatalogueFilter: document.querySelector("#catalogue-weapon-type"),
   weaponElementCatalogueFilter: document.querySelector("#catalogue-weapon-element"),
   weaponMonsterCatalogueFilter: document.querySelector("#catalogue-weapon-monster"),
+  weaponStyleCatalogueFilter: document.querySelector("#catalogue-weapon-style"),
   weaponFavoritesCatalogueFilter: document.querySelector("#catalogue-weapon-favorites"),
   armorSkillCatalogueFilter: document.querySelector("#catalogue-armor-skill"),
   armorMonsterCatalogueFilter: document.querySelector("#catalogue-armor-monster"),
   armorDriftsmeltCatalogueFilter: document.querySelector("#catalogue-armor-driftsmelt"),
   armorFavoritesCatalogueFilter: document.querySelector("#catalogue-armor-favorites"),
+  monsterRiftborneFilter: document.querySelector("#catalogue-monster-riftborne"),
+  materialRiftborneFilter: document.querySelector("#catalogue-material-riftborne"),
   loadoutName: document.querySelector("#loadout-name"),
   loadoutWeapon: document.querySelector("#loadout-weapon"),
+  loadoutWeaponStyle: document.querySelector("#loadout-weapon-style"),
   loadoutStars: document.querySelector("#loadout-stars"),
   loadoutWeakPoint: document.querySelector("#loadout-weak-point"),
   loadoutSelect: document.querySelector("#loadout-select"),
@@ -313,6 +322,10 @@ function wireEvents() {
   document.body.addEventListener("change", (event) => {
     const select = event.target;
     if (!(select instanceof HTMLSelectElement)) return;
+    if (select === elements.loadoutWeapon) {
+      renderLoadoutWeaponStyleEditor(getEditingLoadout());
+      return;
+    }
     if (select.dataset.loadoutArmorPart) {
       renderLoadoutDriftsmeltSelectors();
       return;
@@ -520,6 +533,7 @@ function exportProfile() {
     savedLoadouts: state.savedLoadouts,
     favoriteGearIds: [...state.favoriteGearIds],
     driftsmeltSkillPools: state.driftsmeltSkillPools,
+    weaponStyleProfiles: state.weaponStyleProfiles,
   });
   const url = URL.createObjectURL(new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" }));
   const link = document.createElement("a");
@@ -557,6 +571,7 @@ function applyImportedProfile(profile) {
   state.loadoutStars = state.targetStars;
   state.savedLoadouts = normalizeImportedLoadouts(profile.savedLoadouts, knownGearIds);
   state.driftsmeltSkillPools = normalizeImportedDriftsmeltPools(profile.driftsmeltSkillPools, armorIds);
+  state.weaponStyleProfiles = normalizeImportedWeaponStyleProfiles(profile.weaponStyleProfiles, knownGearIds);
 
   persistOwnedGearIds();
   persistFavoriteGearIds();
@@ -565,6 +580,7 @@ function applyImportedProfile(profile) {
   persistTargetStars();
   persistSavedLoadouts();
   persistDriftsmeltSkillPools();
+  persistWeaponStyleProfiles();
   renderCollectionStatus();
   renderCurrentPage();
 }
@@ -592,6 +608,13 @@ function normalizeImportedDriftsmeltPools(pools, armorIds) {
     .map(([gearId, skills]) => [gearId, normalizeDriftsmeltSkillPool(skills)]));
 }
 
+function normalizeImportedWeaponStyleProfiles(profiles, knownGearIds) {
+  if (!profiles || typeof profiles !== "object" || Array.isArray(profiles)) return {};
+  return Object.fromEntries(Object.entries(profiles)
+    .filter(([gearId]) => knownGearIds.has(gearId))
+    .map(([gearId, profile]) => [gearId, normalizeWeaponStyleProfile(profile)]));
+}
+
 function setProfileFeedback(message, type) {
   if (!elements.profileFeedback) return;
   elements.profileFeedback.textContent = message;
@@ -607,6 +630,7 @@ function currentProfileData() {
     savedLoadouts: state.savedLoadouts,
     favoriteGearIds: [...state.favoriteGearIds],
     driftsmeltSkillPools: state.driftsmeltSkillPools,
+    weaponStyleProfiles: state.weaponStyleProfiles,
   };
 }
 
@@ -760,6 +784,7 @@ function renderPlanner() {
     targetMonsterId: state.targetMonsterId,
     targetStars: state.targetStars,
     assumeWeakPoint: state.assumeWeakPoint,
+    weaponStyleProfiles: state.weaponStyleProfiles,
   });
   const topBuild = builds[0];
   elements.plannerBrief.innerHTML = monsterFeature(target, topBuild);
@@ -776,7 +801,7 @@ function renderWeapons() {
   const items = prioritizeFocusedGear(filterWeapons(GAME_DATA.weapons, {
     ...state.catalogueFilters.weapons,
     query: state.searches.weapons,
-  }, state.favoriteGearIds, state.ownedGearIds), focusedGearIdFromRoute, GAME_DATA.weapons);
+  }, state.favoriteGearIds, state.ownedGearIds, { monsterById, materialById }), focusedGearIdFromRoute, GAME_DATA.weapons);
   elements.weaponsGrid.innerHTML = catalogueGrid(items, 60, weaponCard, "weapons");
   focusGearCard(focusedGearIdFromRoute);
 }
@@ -791,16 +816,18 @@ function renderArmor() {
 }
 
 function renderMonsters() {
-  const items = filterBySearch(GAME_DATA.monsters, state.searches.monsters, (monster) =>
-    `${monster.name} ${monster.species} ${monster.weakness.join(" ")} ${monster.habitats.join(" ")}`,
-  );
+  const items = filterMonsters(GAME_DATA.monsters, {
+    query: state.searches.monsters,
+    riftborneOnly: state.catalogueFilters.monsters.riftborneOnly,
+  }, { materialById });
   elements.monstersGrid.innerHTML = catalogueGrid(items, items.length, monsterCard, "monsters");
 }
 
 function renderMaterials() {
-  const items = filterBySearch(GAME_DATA.materials, state.searches.materials, (material) =>
-    `${material.name} ${material.sourceMonsterIds.map((id) => monsterById[id]?.name ?? id).join(" ")}`,
-  );
+  const items = filterMaterials(GAME_DATA.materials, {
+    query: state.searches.materials,
+    riftborneOnly: state.catalogueFilters.materials.riftborneOnly,
+  });
   elements.materialsGrid.innerHTML = catalogueGrid(items, 72, materialCard, "materials");
 }
 
@@ -826,6 +853,7 @@ function renderLoadoutEditor() {
       ? "Change the gear or active Driftsmelt skills, then save updates to this same loadout."
       : "Choose your forged gear and select the Driftsmelt skills active in this specific build.";
   }
+  renderLoadoutWeaponStyleEditor(editingLoadout);
 }
 
 function renderLoadoutReview() {
@@ -843,12 +871,13 @@ function renderLoadoutReview() {
   elements.loadoutStars.value = String(state.loadoutStars);
   elements.loadoutWeakPoint.checked = state.assumeWeakPoint;
 
-  const build = hydrateLoadout(activeLoadout, GAME_DATA);
+  const build = hydrateLoadout(activeLoadout, GAME_DATA, { weaponStyleProfiles: state.weaponStyleProfiles });
   const finalStats = calculateFinalLoadoutStats(build, { assumeWeakPoint: state.assumeWeakPoint });
   const evaluations = evaluateLoadout(activeLoadout, {
     data: GAME_DATA,
     targetStars: state.loadoutStars,
     assumeWeakPoint: state.assumeWeakPoint,
+    weaponStyleProfiles: state.weaponStyleProfiles,
   });
   const counts = evaluations.reduce((totals, item) => ({ ...totals, [item.result.tier]: totals[item.result.tier] + 1 }), { easy: 0, fair: 0, hard: 0 });
   elements.loadoutSummary.innerHTML = savedLoadoutSummary(activeLoadout, build, counts, finalStats);
@@ -927,6 +956,41 @@ function populateLoadoutControls(editingLoadout = null) {
   renderLoadoutDriftsmeltSelectors();
 }
 
+function renderLoadoutWeaponStyleEditor(editingLoadout = null) {
+  const container = elements.loadoutWeaponStyle;
+  if (!container || !elements.loadoutWeapon) return;
+  const weaponId = elements.loadoutWeapon.value;
+  const weapon = weaponId ? gearById[weaponId] : null;
+  if (!weapon) {
+    container.innerHTML = '<p class="driftsmelt-loadout-note">Choose a forged weapon to review its style customization and Riftborne readiness.</p>';
+    return;
+  }
+
+  const eligible = weaponSupportsStyle(weapon, monsterById, materialById);
+  const sourceMonster = monsterById[weapon.sourceMonsterId];
+  const profile = normalizeWeaponStyleProfile(editingLoadout?.weaponStyleProfile ?? state.weaponStyleProfiles[weapon.id]);
+  if (!eligible) {
+    container.innerHTML = `<div class="loadout-driftsmelt-heading"><p class="eyebrow">Weapon style</p><h3>${weapon.name}</h3><p>${sourceMonster?.name ?? "This series"} does not have a published Riftborne style route in the current official snapshot.</p></div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="loadout-driftsmelt-heading">
+      <p class="eyebrow">Weapon style</p>
+      <h3>Style customization for ${weapon.name}</h3>
+      <p>Manual tracker for your chosen style. These bonuses apply across planner suggestions, saved loadouts, and review pages for this weapon.</p>
+    </div>
+    <div class="loadout-style-grid">
+      <label>Style name<input id="loadout-style-name" type="text" value="${escapeAttribute(profile.styleName)}" placeholder="e.g. Balanced Style" /></label>
+      <label>Style level<select id="loadout-style-level">${Array.from({ length: 6 }, (_, level) => `<option value="${level}" ${level === profile.styleLevel ? "selected" : ""}>Lv.${level}</option>`).join("")}</select></label>
+      <label>Raw bonus<input id="loadout-style-raw" type="number" value="${profile.rawBonus}" step="1" /></label>
+      <label>Affinity bonus %<input id="loadout-style-affinity" type="number" value="${profile.affinityBonus}" step="1" /></label>
+      <label>Element bonus<input id="loadout-style-element" type="number" value="${profile.elementBonus}" step="1" /></label>
+      <label class="loadout-style-notes">Notes<textarea id="loadout-style-notes" rows="3" placeholder="Optional reminder about this style path, Riftborne route, or hunt setup">${escapeTextarea(profile.notes)}</textarea></label>
+    </div>
+  `;
+}
+
 function renderLoadoutDriftsmeltSelectors() {
   const container = document.querySelector("#loadout-driftsmelt");
   if (!container || !elements.loadoutWeapon) return;
@@ -978,6 +1042,7 @@ function saveCurrentLoadout() {
     gearProgress,
     activeDriftsmeltSkills: activeLoadoutDriftsmeltSkills(),
     driftsmeltSkillPools: state.driftsmeltSkillPools,
+    weaponStyleProfiles: currentLoadoutWeaponStyleProfile(weaponId),
     origin: existingLoadout?.origin === "suggested" ? "manual" : existingLoadout?.origin ?? "manual",
     data: GAME_DATA,
   });
@@ -1056,13 +1121,14 @@ function driftsmeltSelectionsForLoadout(loadout) {
 }
 
 function loadoutLibraryCard(loadout) {
-  const build = hydrateLoadout(loadout, GAME_DATA);
+  const build = hydrateLoadout(loadout, GAME_DATA, { weaponStyleProfiles: state.weaponStyleProfiles });
   if (!build) {
     return "";
   }
   const finalStats = calculateFinalLoadoutStats(build);
   const topSkills = aggregateSkills([build.weapon, ...build.armor]).slice(0, 6);
   const activeDriftsmelt = build.armor.flatMap((piece) => piece.driftsmeltSkills ?? []);
+  const styleLine = hasWeaponStyleBonus(finalStats.styleProfile) ? `Weapon style: ${styleProfileSummary(finalStats.styleProfile)}` : "No weapon style customization";
   const gearRows = [build.weapon, ...build.armor].map((gear) => `
     <li>${imageMarkup(gear, "library-gear-image")}<span><b>${gear.part ?? gear.type}</b>${gear.name}</span><em>${gradeLevelMarkup(gear.grade, gear.level, { compact: true })}</em></li>
   `).join("");
@@ -1079,6 +1145,7 @@ function loadoutLibraryCard(loadout) {
         ${skillChips(topSkills)}
       </div>
       <ul class="library-gear-list">${gearRows}</ul>
+      <p class="library-driftsmelt">${styleLine}</p>
       <p class="library-driftsmelt">${activeDriftsmelt.length ? `Active Driftsmelt: ${activeDriftsmelt.map((skill) => `${skill} Lv.1`).join(" · ")}` : "No active Driftsmelt skills"}</p>
       <div class="loadout-card-actions"><a class="secondary-action" href="loadout-editor.html?id=${encodeURIComponent(loadout.id)}">Edit</a><a class="card-action" href="loadout-review.html?id=${encodeURIComponent(loadout.id)}">Review</a><button type="button" data-loadout-action="delete" data-loadout-id="${loadout.id}">Delete</button></div>
     </article>
@@ -1137,21 +1204,28 @@ function savedLoadoutSummary(loadout, build, counts, finalStats) {
   `;
   }).join("");
   const assumptions = [
+    hasWeaponStyleBonus(finalStats.styleProfile) ? styleProfileSummary(finalStats.styleProfile) : null,
     finalStats.rawSkillBonus ? `Attack Boost +${finalStats.rawSkillBonus}` : null,
+    finalStats.advancedRawSkillBonus ? `Advanced Attack Boost +${finalStats.advancedRawSkillBonus}` : null,
     finalStats.attackEfficacyLevel ? `Attack Efficacy +${Math.round(finalStats.attackEfficacyMultiplier * 100)}%` : null,
     finalStats.criticalEyeBonus ? `Critical Eye +${finalStats.criticalEyeBonus}%` : null,
     finalStats.weaknessExploitBonus ? `Weakness Exploit +${finalStats.weaknessExploitBonus}%` : null,
+    finalStats.advancedElementalSkillBonus && finalStats.matchingElement ? `Advanced ${finalStats.weaponElement.type} Attack +${finalStats.advancedElementalSkillBonus}` : null,
   ].filter(Boolean);
   const driftsmeltSkills = build.armor.flatMap((piece) => piece.driftsmeltSkills ?? []);
   const driftsmeltLabel = driftsmeltSkills.length
     ? `Recorded Driftsmelt: ${driftsmeltSkills.map((skill) => `${skill} Lv.1`).join(" · ")}.`
     : "No Driftsmelt skills recorded for this saved loadout.";
+  const styleLabel = hasWeaponStyleBonus(finalStats.styleProfile)
+    ? `Weapon style: ${styleProfileSummary(finalStats.styleProfile)}.`
+    : "No weapon style customization recorded for this saved loadout.";
   return `
     <div class="loadout-summary-gear">${imageMarkup(build.weapon, "summary-weapon-image")}<div><span class="type-label">Reviewing ${loadout.name}</span><h2>${build.weapon.name}</h2><p>${gradeLevelMarkup(build.weapon.grade, build.weapon.level, { compact: true })} · exact saved gear stats</p></div></div>
     <div class="summary-gear-panel"><div class="summary-gear-heading"><p class="eyebrow">Equipped gear</p><a class="secondary-action" href="loadout-editor.html?id=${encodeURIComponent(loadout.id)}">Edit this loadout</a></div><ul class="summary-gear-list">${loadoutGearRows}</ul></div>
     <div class="final-stat-grid"><span><small>Final raw</small><b>${finalStats.rawAttack}</b><em>${rawDetail}</em></span><span><small>Affinity</small><b>${finalStats.affinity >= 0 ? "+" : ""}${finalStats.affinity}%</b><em>${affinityLabel}</em></span><span><small>Final element</small><b>${elementSummary.value}</b><em>${elementSummary.detail}</em></span><span><small>Defense</small><b>${finalStats.defense}</b><em>five armor pieces</em></span></div>
     <div class="summary-skill-panel"><p class="eyebrow">Skills</p>${skillChips(combinedSkills)}</div>
     <p class="damage-assumptions">${assumptions.length ? `Applied: ${assumptions.join(" · ")}. ` : "No always-on offensive skill bonus found. "}Conditional, weapon-specific, status, and timing skills remain listed but are not converted into damage.</p>
+    <p class="damage-assumptions">${styleLabel}</p>
     <p class="damage-assumptions">${driftsmeltLabel}</p>
     <p class="damage-assumptions">${loadout.origin === "suggested" ? "Suggested upgrade targets keep their saved Grade and Level." : "Manual loadouts automatically use your latest forged Grade and Level."}</p>
     <div class="loadout-summary-stats"><span><b>${counts.easy}</b> elemental edges</span><span><b>${counts.fair}</b> on-grade or status hunts</span><span><b>${counts.hard}</b> underpowered hunts</span></div>
@@ -1200,6 +1274,8 @@ function loadoutOutlookMarkup(evaluations) {
 
 function weaponCard(weapon) {
   const currentWeapon = displayGear(weapon);
+  const styleEligible = weaponSupportsStyle(weapon, monsterById, materialById);
+  const styleProfile = normalizeWeaponStyleProfile(state.weaponStyleProfiles[weapon.id]);
   return `
     <article class="catalogue-card gear-card" id="gear-${currentWeapon.id}" data-gear-card="${currentWeapon.id}">
       ${imageMarkup(currentWeapon, "gear-image")}
@@ -1207,7 +1283,8 @@ function weaponCard(weapon) {
         <div class="card-topline"><span class="type-label">${currentWeapon.type}</span><div class="gear-card-actions">${favoriteToggle(weapon)}${ownedToggle(weapon)}</div></div>
         <h2>${currentWeapon.name}</h2>
         <p class="source-line">${sourceMonsterLabel(currentWeapon.sourceMonsterId)} series · ${gradeLevelMarkup(currentWeapon.grade, currentWeapon.level, { compact: true })}</p>
-        <div class="stat-strip"><span>Attack <b>${currentWeapon.attack}</b></span><span>${currentWeapon.element ? `${currentWeapon.element.type} <b>${currentWeapon.element.value}</b>` : "No element"}</span></div>
+        <div class="stat-strip"><span>Attack <b>${currentWeapon.attack}</b></span><span>${currentWeapon.element ? `${currentWeapon.element.type} <b>${currentWeapon.element.value}</b>` : "No element"}</span><span>${styleEligible ? "Riftborne route <b>Live</b>" : "No style route listed"}</span></div>
+        ${styleEligible ? `<div class="skill-chips"><span>${hasWeaponStyleBonus(styleProfile) ? styleProfileSummary(styleProfile) : "Style customizable"}</span></div>` : ""}
         ${skillChips(currentWeapon.skills)}
         <p class="availability-note">Forge quantities are not published in the official guide.</p>
       </div>
@@ -1294,11 +1371,12 @@ function syncManualLoadoutsWithGear(gearId) {
 
 function monsterCard(monster) {
   const gearCount = getMonsterMaterialUsage(monster.id, GAME_DATA).length;
+  const riftborne = monsterHasRiftborne(monster, materialById);
   return `
     <article class="catalogue-card monster-card">
       ${imageMarkup(monster, "monster-image")}
       <div class="card-body">
-        <div class="card-topline"><span class="type-label">${monster.species}</span><span class="grade-label">From grade ${monster.recommendedGrade}</span></div>
+        <div class="card-topline"><span class="type-label">${monster.species}</span><span class="grade-label">${riftborne ? "Riftborne live" : `From grade ${monster.recommendedGrade}`}</span></div>
         <h2>${monster.name}</h2>
         <p class="source-line">Weak to ${monster.weakness.join(" / ")}</p>
         <div class="drop-preview">${monster.drops.slice(0, 4).map(dropToken).join("")}</div>
@@ -1315,7 +1393,7 @@ function materialCard(material) {
     <article class="catalogue-card material-card">
       ${imageMarkup(material, "material-image")}
       <div class="card-body">
-        <div class="card-topline"><span class="type-label">Rarity ${material.rarity}</span><span class="grade-label">From grade ${material.minGrade}</span></div>
+        <div class="card-topline"><span class="type-label">Rarity ${material.rarity}</span><span class="grade-label">${isRiftborneMaterial(material) ? "Riftborne material" : `From grade ${material.minGrade}`}</span></div>
         <h2>${material.name}</h2>
         <p class="source-line">Dropped by ${sources}</p>
         <p class="availability-note">Official drop listing. Per-gear forge quantities are not publicly listed.</p>
@@ -1330,9 +1408,12 @@ function buildCard(build, index, { saved = false } = {}) {
   const rawBreakdown = formatRawBreakdown(build.weapon.attack, damage);
   const elementBreakdown = formatElementBreakdown(damage);
   const appliedSkills = [
+    hasWeaponStyleBonus(damage.styleProfile) ? styleProfileSummary(damage.styleProfile) : null,
     damage.rawSkillBonus ? `Attack Boost +${damage.rawSkillBonus}` : null,
+    damage.advancedRawSkillBonus ? `Advanced Attack Boost +${damage.advancedRawSkillBonus}` : null,
     damage.attackEfficacyLevel ? `Attack Efficacy +${Math.round(damage.attackEfficacyMultiplier * 100)}%` : null,
     damage.elementalSkillBonus && damage.matchingElement ? `${damage.weaponElement.type} Attack +${damage.elementalSkillBonus}` : null,
+    damage.advancedElementalSkillBonus && damage.matchingElement ? `Advanced ${damage.weaponElement.type} Attack +${damage.advancedElementalSkillBonus}` : null,
     damage.criticalEyeBonus ? `Critical Eye +${damage.criticalEyeBonus}%` : null,
     damage.weaknessExploitBonus ? `Weakness Exploit +${damage.weaknessExploitBonus}%` : null,
     damage.criticalMultiplier > 1.25 ? `Critical Boost ${Math.round(damage.criticalMultiplier * 100)}%` : null,
@@ -1359,6 +1440,9 @@ function formatRawStatDetail(baseAttack, stats) {
   if (stats.rawSkillBonus) {
     parts.push(`+ ${stats.rawSkillBonus}`);
   }
+  if (stats.advancedRawSkillBonus) {
+    parts.push(`+ ${stats.advancedRawSkillBonus}`);
+  }
   if (stats.attackEfficacyLevel) {
     parts.push(`x ${formatMultiplier(stats.attackEfficacyMultiplier)}`);
   }
@@ -1374,6 +1458,9 @@ function formatElementStatSummary(stats) {
   if (stats.elementalSkillBonus) {
     parts.push(`+ ${stats.elementalSkillBonus}`);
   }
+  if (stats.advancedElementalSkillBonus) {
+    parts.push(`+ ${stats.advancedElementalSkillBonus}`);
+  }
   parts.push(stats.matchingElement ? "active vs matching weakness" : "active only vs matching weakness");
   return {
     value: `${stats.weaponElement.type} ${finalElement}`,
@@ -1385,6 +1472,9 @@ function formatRawBreakdown(baseAttack, stats) {
   const detail = [];
   if (stats.rawSkillBonus) {
     detail.push(`+${stats.rawSkillBonus}`);
+  }
+  if (stats.advancedRawSkillBonus) {
+    detail.push(`+${stats.advancedRawSkillBonus}`);
   }
   if (stats.attackEfficacyLevel) {
     detail.push(`x${formatMultiplier(stats.attackEfficacyMultiplier)}`);
@@ -1403,6 +1493,27 @@ function formatElementBreakdown(stats) {
 
 function formatMultiplier(value) {
   return (1 + value).toFixed(2).replace(/\.00$/, "");
+}
+
+function styleProfileSummary(profile) {
+  const normalized = normalizeWeaponStyleProfile(profile);
+  const parts = [];
+  if (normalized.styleName) {
+    parts.push(normalized.styleName);
+  }
+  if (normalized.styleLevel) {
+    parts.push(`Lv.${normalized.styleLevel}`);
+  }
+  if (normalized.rawBonus) {
+    parts.push(`raw ${normalized.rawBonus >= 0 ? "+" : ""}${normalized.rawBonus}`);
+  }
+  if (normalized.affinityBonus) {
+    parts.push(`affinity ${normalized.affinityBonus >= 0 ? "+" : ""}${normalized.affinityBonus}%`);
+  }
+  if (normalized.elementBonus) {
+    parts.push(`element ${normalized.elementBonus >= 0 ? "+" : ""}${normalized.elementBonus}`);
+  }
+  return parts.join(" · ") || "Style customizable";
 }
 
 function monsterFeature(monster, build) {
@@ -1505,6 +1616,13 @@ function escapeAttribute(value = "") {
     .replace(/>/g, "&gt;");
 }
 
+function escapeTextarea(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 function filterBySearch(items, search, getText) {
   return search ? items.filter((item) => getText(item).toLowerCase().includes(search)) : items;
 }
@@ -1535,6 +1653,7 @@ function getRecommendedBuilds() {
     ownedGearIds: state.ownedGearIds,
     gearProgress: state.gearProgress,
     driftsmeltSkillPools: state.driftsmeltSkillPools,
+    weaponStyleProfiles: state.weaponStyleProfiles,
     assumeWeakPoint: state.assumeWeakPoint,
     ownedWeaponsOnly: state.ownedWeaponsOnly,
     data: GAME_DATA,
@@ -1561,7 +1680,8 @@ function statCard(label, value) {
 
 function displayGear(gear) {
   const progress = selectedProgressFor(gear);
-  return state.ownedGearIds.has(gear.id) ? getGearAtGrade(gear, progress.grade, progress.level) : gear;
+  const current = state.ownedGearIds.has(gear.id) ? getGearAtGrade(gear, progress.grade, progress.level) : gear;
+  return "attack" in current ? applyWeaponStyleProfile(current, state.weaponStyleProfiles[gear.id]) : current;
 }
 
 function defaultProgressFor(gear) {
@@ -1654,6 +1774,17 @@ function loadDriftsmeltSkillPools() {
   }
 }
 
+function loadWeaponStyleProfiles() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(WEAPON_STYLE_STORAGE_KEY) ?? "{}");
+    return typeof saved === "object" && saved && !Array.isArray(saved)
+      ? Object.fromEntries(Object.entries(saved).map(([gearId, profile]) => [gearId, normalizeWeaponStyleProfile(profile)]))
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 function persistOwnedGearIds() {
   localStorage.setItem(OWNED_STORAGE_KEY, JSON.stringify([...state.ownedGearIds]));
 }
@@ -1670,6 +1801,10 @@ function persistDriftsmeltSkillPools() {
   localStorage.setItem(DRIFTSMELT_STORAGE_KEY, JSON.stringify(state.driftsmeltSkillPools));
 }
 
+function persistWeaponStyleProfiles() {
+  localStorage.setItem(WEAPON_STYLE_STORAGE_KEY, JSON.stringify(state.weaponStyleProfiles));
+}
+
 function persistTargetMonsterId() {
   localStorage.setItem(TARGET_STORAGE_KEY, state.targetMonsterId);
 }
@@ -1680,4 +1815,24 @@ function persistTargetStars() {
 
 function persistSavedLoadouts() {
   localStorage.setItem(LOADOUTS_STORAGE_KEY, JSON.stringify(state.savedLoadouts));
+}
+
+function currentLoadoutWeaponStyleProfile(weaponId) {
+  const weapon = weaponId ? gearById[weaponId] : null;
+  if (!weapon || !weaponSupportsStyle(weapon, monsterById, materialById)) {
+    return {};
+  }
+
+  const profile = normalizeWeaponStyleProfile({
+    ...state.weaponStyleProfiles[weaponId],
+    styleName: document.querySelector("#loadout-style-name")?.value ?? state.weaponStyleProfiles[weaponId]?.styleName,
+    styleLevel: document.querySelector("#loadout-style-level")?.value ?? state.weaponStyleProfiles[weaponId]?.styleLevel,
+    rawBonus: document.querySelector("#loadout-style-raw")?.value ?? state.weaponStyleProfiles[weaponId]?.rawBonus,
+    affinityBonus: document.querySelector("#loadout-style-affinity")?.value ?? state.weaponStyleProfiles[weaponId]?.affinityBonus,
+    elementBonus: document.querySelector("#loadout-style-element")?.value ?? state.weaponStyleProfiles[weaponId]?.elementBonus,
+    notes: document.querySelector("#loadout-style-notes")?.value ?? state.weaponStyleProfiles[weaponId]?.notes,
+  });
+  state.weaponStyleProfiles[weaponId] = profile;
+  persistWeaponStyleProfiles();
+  return { [weaponId]: profile };
 }

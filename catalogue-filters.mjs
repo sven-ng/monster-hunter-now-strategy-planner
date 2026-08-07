@@ -1,6 +1,7 @@
-import { canonicalSkillName } from "./skill-utils.mjs?v=2026-08-07-grade-colors";
+import { canonicalSkillName } from "./skill-utils.mjs?v=2026-08-07-skill-rename-refresh";
+import { isRiftborneMaterial, monsterHasRiftborne, weaponSupportsStyle } from "./weapon-style.mjs?v=2026-08-07-skill-rename-refresh";
 
-export function filterWeapons(items, filters, favorites = new Set(), forgedGear = new Set()) {
+export function filterWeapons(items, filters, favorites = new Set(), forgedGear = new Set(), context = {}) {
   return items.filter((weapon) => {
     const query = filters.query?.toLowerCase() ?? "";
     const searchText = `${weapon.name} ${weapon.type} ${weapon.element?.type ?? "None"} ${weapon.sourceMonsterId ?? ""}`.toLowerCase();
@@ -8,6 +9,7 @@ export function filterWeapons(items, filters, favorites = new Set(), forgedGear 
       && (filters.type === "all" || weapon.type === filters.type)
       && (filters.element === "all" || (weapon.element?.type ?? "None") === filters.element)
       && (filters.monster === "all" || weapon.sourceMonsterId === filters.monster)
+      && (!filters.styleOnly || weaponSupportsStyle(weapon, context.monsterById, context.materialById))
       && (!filters.favoritesOnly || favorites.has(weapon.id))
       && (!filters.forgedOnly || forgedGear.has(weapon.id));
   });
@@ -45,5 +47,23 @@ export function driftsmeltSlotUnlockGrades(piece) {
     const newlyUnlocked = Math.max(0, slotCount - previousCount);
     previousCount = slotCount;
     return Array.from({ length: newlyUnlocked }, () => option.grade);
+  });
+}
+
+export function filterMonsters(items, { query = "", riftborneOnly = false } = {}, context = {}) {
+  const lowered = query.toLowerCase();
+  return items.filter((monster) => {
+    const searchText = `${monster.name} ${monster.species} ${monster.weakness.join(" ")} ${monster.habitats.join(" ")}`.toLowerCase();
+    return (!lowered || searchText.includes(lowered))
+      && (!riftborneOnly || monsterHasRiftborne(monster, context.materialById));
+  });
+}
+
+export function filterMaterials(items, { query = "", riftborneOnly = false } = {}) {
+  const lowered = query.toLowerCase();
+  return items.filter((material) => {
+    const searchText = `${material.name} ${material.sourceMonsterIds.join(" ")}`.toLowerCase();
+    return (!lowered || searchText.includes(lowered))
+      && (!riftborneOnly || isRiftborneMaterial(material));
   });
 }

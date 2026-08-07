@@ -1,7 +1,13 @@
-import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-07-grade-colors";
+import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-07-skill-rename-refresh";
 
 const SKILL_NAME_ALIASES = {
   Powerhouse: "Attack Efficacy",
+  "Attack Boost Secret": "Advanced Attack Boost",
+  "Water Attack Boost Secret": "Advanced Water Attack",
+  "Thunder Attack Boost Secret": "Advanced Thunder Attack",
+  "Ice Attack Boost Secret": "Advanced Ice Attack",
+  "Dragon Attack Boost Secret": "Advanced Dragon Attack",
+  "Velkhana Armor": "Velkhana Aegis",
 };
 
 const SKILL_DESCRIPTIONS = {
@@ -16,6 +22,10 @@ const SKILL_DESCRIPTIONS = {
     "Lv.1: Attack power increases by 10%.",
     "Lv.2: Attack power increases by 15%.",
     "Lv.3: Attack power increases by 25%.",
+  ],
+  "Advanced Attack Boost": [
+    "Lv.1: Increases attack power by 150 when Attack Boost Lv5+ is active.",
+    "Lv.2: Increases attack power by 350 when Attack Boost Lv5+ is active.",
   ],
   "Critical Eye": [
     "Lv.1: Increases affinity by 10%.",
@@ -59,12 +69,20 @@ const SKILL_DESCRIPTIONS = {
     "Lv.4: Increases your weapon's water element value by 350.",
     "Lv.5: Increases your weapon's water element value by 500.",
   ],
+  "Advanced Water Attack": [
+    "Lv.1: Increases weapon's water element value by 200 when Water Attack Lv5+ is active.",
+    "Lv.2: Increases weapon's water element value by 400 when Water Attack Lv5+ is active.",
+  ],
   "Thunder Attack": [
     "Lv.1: Increases your weapon's thunder element value by 50.",
     "Lv.2: Increases your weapon's thunder element value by 100.",
     "Lv.3: Increases your weapon's thunder element value by 200.",
     "Lv.4: Increases your weapon's thunder element value by 350.",
     "Lv.5: Increases your weapon's thunder element value by 500.",
+  ],
+  "Advanced Thunder Attack": [
+    "Lv.1: Increases weapon's thunder element value by 200 when Thunder Attack Lv5+ is active.",
+    "Lv.2: Increases weapon's thunder element value by 400 when Thunder Attack Lv5+ is active.",
   ],
   "Ice Attack": [
     "Lv.1: Increases your weapon's ice element value by 50.",
@@ -73,12 +91,25 @@ const SKILL_DESCRIPTIONS = {
     "Lv.4: Increases your weapon's ice element value by 350.",
     "Lv.5: Increases your weapon's ice element value by 500.",
   ],
+  "Advanced Ice Attack": [
+    "Lv.1: Increases weapon's ice element value by 200 when Ice Attack Lv5+ is active.",
+    "Lv.2: Increases weapon's ice element value by 400 when Ice Attack Lv5+ is active.",
+  ],
   "Dragon Attack": [
     "Lv.1: Increases your weapon's dragon element value by 50.",
     "Lv.2: Increases your weapon's dragon element value by 100.",
     "Lv.3: Increases your weapon's dragon element value by 200.",
     "Lv.4: Increases your weapon's dragon element value by 350.",
     "Lv.5: Increases your weapon's dragon element value by 500.",
+  ],
+  "Advanced Dragon Attack": [
+    "Lv.1: Increases weapon's dragon element value by 200 when Dragon Attack Lv5+ is active.",
+    "Lv.2: Increases weapon's dragon element value by 400 when Dragon Attack Lv5+ is active.",
+  ],
+  "Velkhana Aegis": [
+    "Lv.1: Increases ice element attack power by 10%, and grants extra health equal to 20% of maximum health when using a Special Skill.",
+    "Lv.2: Increases ice element attack power by 15%, and grants extra health equal to 40% of maximum health when using a Special Skill.",
+    "Lv.3: Increases ice element attack power by 20%, and grants extra health equal to 60% of maximum health when using a Special Skill.",
   ],
 };
 
