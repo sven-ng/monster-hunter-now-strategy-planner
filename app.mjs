@@ -1,12 +1,12 @@
-import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-07-loadout-preview";
-import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterMaterials, filterMonsters, filterWeapons } from "./catalogue-filters.mjs?v=2026-08-07-loadout-preview";
-import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmeltSkillPool } from "./driftsmelt.mjs?v=2026-08-07-loadout-preview";
-import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs?v=2026-08-07-loadout-preview";
-import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs?v=2026-08-07-loadout-preview";
-import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-07-loadout-preview";
-import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions } from "./skill-utils.mjs?v=2026-08-07-loadout-preview";
-import { buildUpgradePlan } from "./upgrade-planner.mjs?v=2026-08-07-loadout-preview";
-import { applyWeaponStyleProfile, defaultWeaponStyleProfile, hasWeaponStyleBonus, isRiftborneMaterial, monsterHasRiftborne, normalizeWeaponStyleProfile, weaponSupportsStyle } from "./weapon-style.mjs?v=2026-08-07-loadout-preview";
+import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-08-loadout-focus";
+import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterMaterials, filterMonsters, filterWeapons } from "./catalogue-filters.mjs?v=2026-08-08-loadout-focus";
+import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmeltSkillPool } from "./driftsmelt.mjs?v=2026-08-08-loadout-focus";
+import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs?v=2026-08-08-loadout-focus";
+import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs?v=2026-08-08-loadout-focus";
+import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-08-loadout-focus";
+import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions } from "./skill-utils.mjs?v=2026-08-08-loadout-focus";
+import { buildUpgradePlan } from "./upgrade-planner.mjs?v=2026-08-08-loadout-focus";
+import { applyWeaponStyleProfile, defaultWeaponStyleProfile, hasWeaponStyleBonus, isRiftborneMaterial, monsterHasRiftborne, normalizeWeaponStyleProfile, weaponSupportsStyle } from "./weapon-style.mjs?v=2026-08-08-loadout-focus";
 import {
   aggregateSkills,
   calculateFinalLoadoutStats,
@@ -17,7 +17,8 @@ import {
   getRequiredParts,
   recommendedGradeForStars,
   recommendBuilds,
-} from "./planner.mjs?v=2026-08-07-loadout-preview";
+  recommendLoadoutFocusBuilds,
+} from "./planner.mjs?v=2026-08-08-loadout-focus";
 
 const OWNED_STORAGE_KEY = "mhnow-strategy-planner-owned-gear";
 const GEAR_PROGRESS_STORAGE_KEY = "mhnow-strategy-planner-gear-progress";
@@ -47,9 +48,11 @@ const state = {
   editingLoadoutId: loadoutIdFromRoute,
   activeUpgradeLoadoutId: null,
   plannerSuggestedBuilds: [],
+  loadoutSuggestedBuilds: [],
   plannerFeedback: "",
   loadoutStars: loadTargetStars(),
   assumeWeakPoint: false,
+  loadoutSuggestionFocus: "raw",
   favoriteGearIds: loadFavoriteGearIds(),
   driftsmeltSkillPools: loadDriftsmeltSkillPools(),
   weaponStyleProfiles: loadWeaponStyleProfiles(),
@@ -129,6 +132,7 @@ const elements = {
   loadoutReviewTitle: document.querySelector("#loadout-review-title"),
   loadoutReviewEdit: document.querySelector("#loadout-review-edit"),
   loadoutSummary: document.querySelector("#loadout-summary"),
+  loadoutSuggestions: document.querySelector("#loadout-suggestions"),
   loadoutOutlook: document.querySelector("#loadout-outlook"),
   loadoutParts: Object.fromEntries(getRequiredParts(GAME_DATA).map((part) => [part, document.querySelector(`#loadout-${part.toLowerCase()}`)])),
 };
@@ -334,6 +338,11 @@ function wireEvents() {
       renderLoadoutDriftsmeltSelectors();
       return;
     }
+    if (select.id === "loadout-suggestion-focus") {
+      state.loadoutSuggestionFocus = select.value;
+      renderLoadoutReview();
+      return;
+    }
     if (!select.dataset.loadoutDriftsmeltGear) return;
     const gearId = select.dataset.loadoutDriftsmeltGear;
     state.loadoutDriftsmeltSelections[gearId] = [...document.querySelectorAll(`[data-loadout-driftsmelt-gear="${gearId}"]`)]
@@ -401,7 +410,7 @@ function wireEvents() {
       openSkillDialog(skillChip.dataset.skillChip, Number(skillChip.dataset.skillLevel), skillChip.dataset.skillEffect ?? "");
       return;
     }
-    const button = event.target.closest("[data-plan-monster], [data-loadout-action], [data-favorite-toggle], [data-save-suggestion], [data-driftsmelt-pool-add], [data-driftsmelt-pool-remove], [data-driftsmelt-suggestion]");
+    const button = event.target.closest("[data-plan-monster], [data-loadout-action], [data-favorite-toggle], [data-save-suggestion], [data-save-loadout-suggestion], [data-driftsmelt-pool-add], [data-driftsmelt-pool-remove], [data-driftsmelt-suggestion]");
     if (!(button instanceof HTMLButtonElement)) {
       return;
     }
@@ -454,6 +463,10 @@ function wireEvents() {
     }
     if (button.dataset.saveSuggestion !== undefined) {
       saveSuggestedBuild(Number(button.dataset.saveSuggestion));
+      return;
+    }
+    if (button.dataset.saveLoadoutSuggestion !== undefined) {
+      saveLoadoutSuggestion(Number(button.dataset.saveLoadoutSuggestion));
       return;
     }
     if (button.dataset.loadoutAction === "delete") {
@@ -866,6 +879,7 @@ function renderLoadoutReview() {
     ?? state.savedLoadouts[0];
   if (!activeLoadout) {
     if (elements.loadoutSummary) elements.loadoutSummary.innerHTML = '<p class="empty-state">No saved loadout to review. Create one in the build editor first.</p>';
+    if (elements.loadoutSuggestions) elements.loadoutSuggestions.innerHTML = "";
     if (elements.loadoutOutlook) elements.loadoutOutlook.innerHTML = "";
     return;
   }
@@ -877,6 +891,16 @@ function renderLoadoutReview() {
 
   const build = hydrateLoadout(activeLoadout, GAME_DATA, { weaponStyleProfiles: state.weaponStyleProfiles });
   const finalStats = calculateFinalLoadoutStats(build, { assumeWeakPoint: state.assumeWeakPoint });
+  state.loadoutSuggestedBuilds = recommendLoadoutFocusBuilds({
+    baselineBuild: build,
+    focus: state.loadoutSuggestionFocus,
+    ownedGearIds: state.ownedGearIds,
+    gearProgress: state.gearProgress,
+    driftsmeltSkillPools: state.driftsmeltSkillPools,
+    weaponStyleProfiles: state.weaponStyleProfiles,
+    assumeWeakPoint: state.assumeWeakPoint,
+    data: GAME_DATA,
+  });
   const evaluations = evaluateLoadout(activeLoadout, {
     data: GAME_DATA,
     targetStars: state.loadoutStars,
@@ -885,6 +909,13 @@ function renderLoadoutReview() {
   });
   const counts = evaluations.reduce((totals, item) => ({ ...totals, [item.result.tier]: totals[item.result.tier] + 1 }), { easy: 0, fair: 0, hard: 0 });
   elements.loadoutSummary.innerHTML = savedLoadoutSummary(activeLoadout, build, counts, finalStats);
+  if (elements.loadoutSuggestions) {
+    elements.loadoutSuggestions.innerHTML = loadoutSuggestionsMarkup(activeLoadout, build, state.loadoutSuggestedBuilds);
+    const focusSelect = document.querySelector("#loadout-suggestion-focus");
+    if (focusSelect) {
+      focusSelect.value = state.loadoutSuggestionFocus;
+    }
+  }
   elements.loadoutOutlook.innerHTML = loadoutOutlookMarkup(evaluations);
 }
 
@@ -1186,6 +1217,25 @@ function saveSuggestedBuild(index) {
   renderPlanner();
 }
 
+function saveLoadoutSuggestion(index) {
+  const build = state.loadoutSuggestedBuilds[index];
+  const activeLoadout = state.savedLoadouts.find((loadout) => loadout.id === state.activeLoadoutId);
+  if (!build || !activeLoadout) return;
+  const name = `${activeLoadout.name} · ${build.focusLabel}`;
+  const loadout = createLoadoutFromBuild({
+    id: `loadout-focus-${Date.now()}`,
+    name,
+    build,
+    data: GAME_DATA,
+  });
+  if (!loadout) return;
+
+  state.savedLoadouts.push(loadout);
+  state.activeLoadoutId = loadout.id;
+  persistSavedLoadouts();
+  window.location.href = `loadout-review.html?id=${encodeURIComponent(loadout.id)}`;
+}
+
 function catalogueGrid(items, limit, renderer, label) {
   if (!items.length) {
     return '<p class="empty-state">No matches. Try another monster, element, weapon type, or material name.</p>';
@@ -1385,6 +1435,65 @@ function loadoutOutlookMarkup(evaluations) {
       </button>
     `).join("")}</div>
   `;
+}
+
+function loadoutSuggestionsMarkup(activeLoadout, baselineBuild, builds) {
+  const baselineStats = calculateFinalLoadoutStats(baselineBuild, { assumeWeakPoint: state.assumeWeakPoint });
+  const cards = builds.length
+    ? builds.map((build, index) => loadoutSuggestionCard(build, index, baselineStats)).join("")
+    : '<p class="empty-state">No owned same-weapon-type alternatives found yet. Forge more gear, then reopen this review.</p>';
+  return `
+    <section class="loadout-focus-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Best loadout suggestion</p>
+          <h2>Rebuild ${activeLoadout.name} around one focus</h2>
+          <p class="section-copy">These suggestions only use your forged same-weapon-type gear, then optimize for raw attack, element attack, or offensive skills.</p>
+        </div>
+        <label class="inline-select">Suggestion focus<select id="loadout-suggestion-focus"><option value="raw">Raw attack</option><option value="element">Element attack</option><option value="skills">Skills</option></select></label>
+      </div>
+      <div class="build-grid">${cards}</div>
+    </section>
+  `;
+}
+
+function loadoutSuggestionCard(build, index, baselineStats) {
+  const damage = build.damage ?? calculateFinalLoadoutStats(build, { assumeWeakPoint: state.assumeWeakPoint });
+  const comparison = build.baselineComparison ?? {
+    rawDelta: damage.rawAttack - baselineStats.rawAttack,
+    elementDelta: damage.potentialElement - baselineStats.potentialElement,
+    defenseDelta: damage.defense - baselineStats.defense,
+    affinityDelta: damage.affinity - baselineStats.affinity,
+  };
+  const comparisonTokens = [
+    comparisonToken("Raw", comparison.rawDelta),
+    comparisonToken("Element", comparison.elementDelta),
+    comparisonToken("Defense", comparison.defenseDelta),
+    comparisonToken("Affinity", comparison.affinityDelta, "%"),
+  ].join("");
+  const topSkills = aggregateSkills([build.weapon, ...build.armor]).slice(0, 6);
+  return `
+    <article class="build-card ${index === 0 ? "best-build" : ""}">
+      <div class="build-hero">${imageMarkup(build.weapon, "build-weapon-image")}
+        <div><span class="type-label">${index === 0 ? "Best focus result" : `Focus build ${index + 1}`}</span><h2>${build.weapon.name}</h2><p>${build.focusLabel} · ${build.weapon.type} · ${gradeLevelMarkup(build.weapon.grade, build.weapon.level, { compact: true })}</p></div>
+      </div>
+      <div class="build-score">
+        <span class="status-pill easy">${build.focusLabel}</span>
+        <div class="damage-total"><small>Focus score</small><strong>${Math.round(build.focusScore)}</strong><em>ranked from your owned gear</em></div>
+        <div class="damage-breakdown"><span>${formatRawBreakdown(build.weapon.attack, damage)}</span><span>${formatElementBreakdown(damage)}</span><span>${damage.defense} defense</span></div>
+      </div>
+      <div class="suggestion-comparison-grid">${comparisonTokens}</div>
+      <div class="summary-skill-panel compact-panel"><p class="eyebrow">Total skills</p>${skillChips(topSkills)}</div>
+      <button class="save-suggestion" type="button" data-save-loadout-suggestion="${index}">Save as new loadout</button>
+      <div class="loadout-list"><p>Suggested gear swap</p><ul>${build.armor.map((piece) => `<li>${imageMarkup(piece, "loadout-icon")}<span>${piece.part}</span>${piece.name}</li>`).join("")}</ul></div>
+    </article>
+  `;
+}
+
+function comparisonToken(label, delta, suffix = "") {
+  const sign = delta > 0 ? "+" : "";
+  const tone = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
+  return `<span class="comparison-token ${tone}"><small>${label}</small><b>${sign}${delta}${suffix}</b></span>`;
 }
 
 function weaponCard(weapon) {

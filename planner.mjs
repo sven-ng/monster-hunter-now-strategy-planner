@@ -1,7 +1,7 @@
-import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-07-skill-rename-refresh";
-import { applyDriftsmeltSkills } from "./driftsmelt.mjs?v=2026-08-07-skill-rename-refresh";
-import { canonicalSkillName } from "./skill-utils.mjs?v=2026-08-07-skill-rename-refresh";
-import { applyWeaponStyleProfile, normalizeWeaponStyleProfile } from "./weapon-style.mjs?v=2026-08-07-skill-rename-refresh";
+import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-08-loadout-focus";
+import { applyDriftsmeltSkills } from "./driftsmelt.mjs?v=2026-08-08-loadout-focus";
+import { canonicalSkillName } from "./skill-utils.mjs?v=2026-08-08-loadout-focus";
+import { applyWeaponStyleProfile, normalizeWeaponStyleProfile } from "./weapon-style.mjs?v=2026-08-08-loadout-focus";
 
 const ELEMENT_SKILL_NAMES = new Set([
   "Fire Attack",
@@ -131,6 +131,7 @@ export function aggregateSkills(gearItems) {
 
 export function calculateWeaponPower(weapon, aggregatedSkills, targetMonster) {
   const baseAttack = weapon.attack;
+  const targetWeakness = targetMonster?.weakness ?? [];
   const skillMap = new Map(aggregatedSkills.map((skill) => [skill.name, skill.level]));
   const attackBoostLevel = skillMap.get("Attack Boost") ?? 0;
   const advancedAttackBoostLevel = attackBoostLevel >= 5 ? skillMap.get("Advanced Attack Boost") ?? 0 : 0;
@@ -143,7 +144,7 @@ export function calculateWeaponPower(weapon, aggregatedSkills, targetMonster) {
 
   let elementValue = weapon.element?.value ?? 0;
   let weaknessBonus = 0;
-  if (weapon.element && targetMonster.weakness.includes(weapon.element.type)) {
+  if (weapon.element && targetWeakness.includes(weapon.element.type)) {
     weaknessBonus += 120;
     const matchingSkillName = `${weapon.element.type} Attack`;
     const advancedSkillName = `Advanced ${weapon.element.type} Attack`;
@@ -154,7 +155,7 @@ export function calculateWeaponPower(weapon, aggregatedSkills, targetMonster) {
       }
     }
   } else if (weapon.element && (weapon.element.type === "Poison" || weapon.element.type === "Paralysis")) {
-    weaknessBonus += targetMonster.weakness.includes(weapon.element.type) ? 70 : 20;
+    weaknessBonus += targetWeakness.includes(weapon.element.type) ? 70 : 20;
   }
 
   let skillScore = 0;
@@ -363,23 +364,139 @@ export function recommendBuilds({
   ).slice(0, 6);
 }
 
+export function recommendLoadoutFocusBuilds({
+  baselineBuild,
+  focus = "raw",
+  ownedGearIds = new Set(),
+  gearGrades = {},
+  gearProgress = {},
+  driftsmeltSkillPools = {},
+  weaponStyleProfiles = {},
+  assumeWeakPoint = false,
+  data = GAME_DATA,
+} = {}) {
+  if (!baselineBuild?.weapon) {
+    return [];
+  }
+
+  const armorByPart = groupArmorByPart(data);
+  const normalizedFocus = ["raw", "element", "skills"].includes(focus) ? focus : "raw";
+  const sameTypeOwnedWeapons = data.weapons.filter((weapon) =>
+    weapon.type === baselineBuild.weapon.type && ownedGearIds.has(weapon.id),
+  );
+  const selectedGear = (gear) => {
+    const progress = gearProgress[gear.id];
+    const selected = getGearAtGrade(gear, progress?.grade ?? gearGrades[gear.id] ?? gear.grade, progress?.level);
+    return "attack" in selected ? applyWeaponStyleProfile(selected, weaponStyleProfiles[gear.id]) : selected;
+  };
+
+  const weaponPool = sameTypeOwnedWeapons.length
+    ? sameTypeOwnedWeapons
+    : data.weapons.filter((weapon) => weapon.type === baselineBuild.weapon.type && weapon.id === baselineBuild.weapon.id);
+  const weaponCandidates = rankLoadoutWeapons(
+    weaponPool.map(selectedGear),
+    baselineBuild,
+    normalizedFocus,
+    ownedGearIds,
+  ).slice(0, 48);
+  const armorCandidates = getRequiredParts(data).map((part) => {
+    const ownedPieces = (armorByPart[part] ?? []).filter((piece) =>
+      ownedGearIds.has(piece.id) || piece.id === baselineBuild.armor.find((item) => item.part === part)?.id,
+    );
+    return rankLoadoutArmor(
+      ownedPieces.map(selectedGear),
+      baselineBuild,
+      normalizedFocus,
+      ownedGearIds,
+    ).slice(0, 7);
+  });
+  const armorSets = cartesianProduct(armorCandidates)
+    .map((armor) => ({
+      armor,
+      score: armor.reduce((total, piece) =>
+        total + armorFocusPotential(piece, baselineBuild, normalizedFocus) + (ownedGearIds.has(piece.id) ? 14 : 0), 0),
+    }))
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 160);
+
+  const seenSignatures = new Set();
+  const builds = [];
+  for (const weapon of weaponCandidates) {
+    for (const { armor } of armorSets) {
+      const armorWithDriftsmelt = applySuggestedDriftsmeltSkills({
+        weapon,
+        armor,
+        driftsmeltSkillPools,
+        assumeWeakPoint,
+        focus: normalizedFocus,
+        preferredElement: preferredLoadoutElement(baselineBuild, weapon, normalizedFocus),
+      });
+      const signature = [weapon.id, ...armorWithDriftsmelt.map((piece) => piece.id)].join("|");
+      if (seenSignatures.has(signature)) continue;
+      seenSignatures.add(signature);
+
+      const damage = calculateFinalLoadoutStats({ weapon, armor: armorWithDriftsmelt }, { assumeWeakPoint });
+      const summary = buildSummary({ weapon, armor: armorWithDriftsmelt, ownedCount: countOwnedGear(ownedGearIds, [weapon, ...armorWithDriftsmelt]) });
+      const focusScore = scoreLoadoutFocusBuild({
+        weapon,
+        armor: armorWithDriftsmelt,
+        damage,
+        summary,
+        focus: normalizedFocus,
+        baselineBuild,
+        assumeWeakPoint,
+      });
+      builds.push({
+        weapon,
+        armor: armorWithDriftsmelt,
+        damage,
+        focus: normalizedFocus,
+        focusScore,
+        focusLabel: loadoutFocusLabel(normalizedFocus),
+        ownedCount: countOwnedGear(ownedGearIds, [weapon, ...armorWithDriftsmelt]),
+        baselineComparison: compareBuildAgainstBaseline(damage, baselineBuild, assumeWeakPoint),
+        ...summary,
+      });
+    }
+  }
+
+  return builds.sort((left, right) =>
+    right.focusScore - left.focusScore
+    || right.damage.referenceDamage - left.damage.referenceDamage
+    || right.damage.potentialElement - left.damage.potentialElement
+    || right.damage.rawAttack - left.damage.rawAttack
+    || right.damage.defense - left.damage.defense
+    || right.ownedCount - left.ownedCount,
+  ).slice(0, 4);
+}
+
 export function applySuggestedDriftsmeltSkills({
   weapon,
   armor,
   targetMonster,
   driftsmeltSkillPools = {},
   assumeWeakPoint = false,
+  focus = "matchup",
+  preferredElement = null,
 }) {
-  const matchingElement = weapon.element && targetMonster.weakness.includes(weapon.element.type)
+  const matchingElement = preferredElement ?? (weapon.element && targetMonster?.weakness?.includes(weapon.element.type)
     ? `${weapon.element.type} Attack`
-    : null;
+    : null);
 
   return armor.map((piece) => {
     const slotCount = piece.driftsmeltSlots ?? 0;
     const skillPool = driftsmeltSkillPools[piece.id] ?? [];
     if (!slotCount || !skillPool.length) return piece;
     const selectedSkills = skillPool
-      .map((skill, index) => ({ skill, index, score: suggestedDriftsmeltScore(skill, matchingElement, assumeWeakPoint) }))
+      .map((skill, index) => ({
+        skill,
+        index,
+        score: suggestedDriftsmeltScore(skill, {
+          focus,
+          matchingElement,
+          assumeWeakPoint,
+        }),
+      }))
       .sort((left, right) => right.score - left.score || left.index - right.index)
       .slice(0, slotCount)
       .map(({ skill }) => skill);
@@ -425,6 +542,12 @@ function skillScore(skills) {
   return (skills ?? []).reduce((total, skill) => total + (ATTACK_SKILL_SCORES[skill.name] ?? skill.level * 5), 0);
 }
 
+function loadoutFocusLabel(focus) {
+  if (focus === "element") return "Element focus";
+  if (focus === "skills") return "Skill focus";
+  return "Raw focus";
+}
+
 function rankWeapons(weapons, targetMonster, ownedGearIds) {
   return weapons
     .map((weapon) => {
@@ -435,11 +558,34 @@ function rankWeapons(weapons, targetMonster, ownedGearIds) {
     .map(({ weapon }) => weapon);
 }
 
+function rankLoadoutWeapons(weapons, baselineBuild, focus, ownedGearIds) {
+  return weapons
+    .map((weapon) => {
+      const damage = calculateFinalLoadoutStats({ weapon, armor: baselineBuild.armor });
+      return {
+        weapon,
+        score: weaponFocusPotential(weapon, damage, baselineBuild, focus) + (ownedGearIds.has(weapon.id) ? 18 : 0),
+      };
+    })
+    .sort((left, right) => right.score - left.score)
+    .map(({ weapon }) => weapon);
+}
+
 function rankArmor(armor, ownedGearIds) {
   return armor
     .map((piece) => ({
       piece,
       score: armorOffensePotential(piece) + (ownedGearIds.has(piece.id) ? 18 : 0),
+    }))
+    .sort((left, right) => right.score - left.score)
+    .map(({ piece }) => piece);
+}
+
+function rankLoadoutArmor(armor, baselineBuild, focus, ownedGearIds) {
+  return armor
+    .map((piece) => ({
+      piece,
+      score: armorFocusPotential(piece, baselineBuild, focus) + (ownedGearIds.has(piece.id) ? 18 : 0),
     }))
     .sort((left, right) => right.score - left.score)
     .map(({ piece }) => piece);
@@ -457,13 +603,94 @@ function armorOffensePotential(piece) {
   }, 0);
 }
 
-function suggestedDriftsmeltScore(skill, matchingElement, assumeWeakPoint) {
-  if (skill === matchingElement) return 140;
-  if (skill === "Attack Boost") return 120;
-  if (skill === "Attack Efficacy") return 110;
-  if (skill === "Critical Eye") return 70;
-  if (skill === "Weakness Exploit") return assumeWeakPoint ? 65 : 20;
-  if (skill === "Critical Boost") return 45;
+function weaponFocusPotential(weapon, damage, baselineBuild, focus) {
+  if (focus === "element") {
+    const preferredElement = preferredLoadoutElement(baselineBuild, weapon, focus);
+    const sameElementBonus = preferredElement && weapon.element?.type === preferredElement.replace(" Attack", "") ? 420 : 0;
+    return damage.potentialElement * 3 + damage.rawAttack * 0.45 + sameElementBonus;
+  }
+  if (focus === "skills") {
+    return damage.rawAttack * 0.7 + damage.potentialElement * 0.55 + (weapon.affinity ?? 0) * 8 + skillScore(weapon.skills);
+  }
+  return damage.rawAttack * 2.3 + damage.potentialElement * 0.35 + (weapon.affinity ?? 0) * 7;
+}
+
+function armorFocusPotential(piece, baselineBuild, focus) {
+  const preferredElement = preferredLoadoutElement(baselineBuild, null, focus);
+  return piece.defense * 0.22 + (piece.skills ?? []).reduce((total, skill) => {
+    if (skill.name === "Attack Boost") return total + (focus === "raw" ? 120 : 90) * skill.level;
+    if (skill.name === "Advanced Attack Boost") return total + (focus === "raw" ? 150 : 110) * skill.level;
+    if (skill.name === "Attack Efficacy") return total + (focus === "raw" ? 180 : 130) * skill.level;
+    if (skill.name === "Critical Eye") return total + 78 * skill.level;
+    if (skill.name === "Weakness Exploit") return total + 88 * skill.level;
+    if (skill.name === "Critical Boost") return total + 82 * skill.level;
+    if (preferredElement && skill.name === preferredElement) return total + (focus === "element" ? 170 : 90) * skill.level;
+    if (preferredElement && skill.name === `Advanced ${preferredElement.replace(" Attack", "")} Attack`) {
+      return total + (focus === "element" ? 210 : 120) * skill.level;
+    }
+    return total + skillScore([skill]) * (focus === "skills" ? 1.45 : 1);
+  }, 0);
+}
+
+function preferredLoadoutElement(baselineBuild, weapon, focus) {
+  if (focus !== "element") return null;
+  const weaponElementType = weapon?.element?.type;
+  if (weaponElementType && ELEMENT_DAMAGE_TYPES.has(weaponElementType)) {
+    return `${weaponElementType} Attack`;
+  }
+  const baselineType = baselineBuild.weapon?.element?.type;
+  return baselineType && ELEMENT_DAMAGE_TYPES.has(baselineType) ? `${baselineType} Attack` : null;
+}
+
+function scoreLoadoutFocusBuild({ weapon, armor, damage, summary, focus, baselineBuild, assumeWeakPoint }) {
+  const aggregatedSkills = summary.aggregatedSkills ?? aggregateSkills([weapon, ...armor]);
+  const skillTotal = aggregatedSkills.reduce((total, skill) =>
+    total + focusedSkillWeight(skill.name, skill.level, focus, preferredLoadoutElement(baselineBuild, weapon, focus), assumeWeakPoint), 0);
+  if (focus === "element") {
+    const preferredElement = preferredLoadoutElement(baselineBuild, weapon, focus);
+    const sameElementBonus = preferredElement && weapon.element?.type === preferredElement.replace(" Attack", "") ? 320 : 0;
+    return damage.potentialElement * 3.2 + damage.rawAttack * 0.55 + skillTotal + sameElementBonus + damage.defense * 0.18;
+  }
+  if (focus === "skills") {
+    return skillTotal * 14 + damage.rawAttack * 0.75 + damage.potentialElement * 0.75 + damage.defense * 0.2;
+  }
+  return damage.rawAttack * 2.6 + damage.expectedRaw * 1.2 + damage.potentialElement * 0.3 + skillTotal * 6 + damage.defense * 0.18;
+}
+
+function focusedSkillWeight(name, level, focus, preferredElement, assumeWeakPoint) {
+  if (name === "Attack Boost") return level * (focus === "raw" ? 28 : 18);
+  if (name === "Advanced Attack Boost") return level * (focus === "raw" ? 38 : 24);
+  if (name === "Attack Efficacy") return level * (focus === "raw" ? 44 : 30);
+  if (name === "Critical Eye") return level * 18;
+  if (name === "Weakness Exploit") return level * (assumeWeakPoint ? 22 : 12);
+  if (name === "Critical Boost") return level * 21;
+  if (name === preferredElement) return level * (focus === "element" ? 36 : 16);
+  if (preferredElement && name === `Advanced ${preferredElement.replace(" Attack", "")} Attack`) {
+    return level * (focus === "element" ? 44 : 20);
+  }
+  return (ATTACK_SKILL_SCORES[name] ?? 4) * level;
+}
+
+function compareBuildAgainstBaseline(damage, baselineBuild, assumeWeakPoint) {
+  const baselineDamage = calculateFinalLoadoutStats(baselineBuild, { assumeWeakPoint });
+  return {
+    rawDelta: damage.rawAttack - baselineDamage.rawAttack,
+    elementDelta: damage.potentialElement - baselineDamage.potentialElement,
+    defenseDelta: damage.defense - baselineDamage.defense,
+    affinityDelta: damage.affinity - baselineDamage.affinity,
+  };
+}
+
+function suggestedDriftsmeltScore(skill, { focus = "matchup", matchingElement = null, assumeWeakPoint = false } = {}) {
+  if (skill === matchingElement) return focus === "element" ? 180 : 140;
+  if (matchingElement && skill === `Advanced ${matchingElement.replace(" Attack", "")} Attack`) return focus === "element" ? 170 : 90;
+  if (skill === "Attack Boost") return focus === "raw" ? 145 : 120;
+  if (skill === "Advanced Attack Boost") return focus === "raw" ? 155 : 125;
+  if (skill === "Attack Efficacy") return focus === "raw" ? 150 : 110;
+  if (skill === "Critical Eye") return focus === "skills" ? 90 : 70;
+  if (skill === "Weakness Exploit") return assumeWeakPoint ? (focus === "skills" ? 88 : 65) : 20;
+  if (skill === "Critical Boost") return focus === "skills" ? 82 : 45;
+  if (skill === "Burst") return focus === "skills" ? 76 : 24;
   return 0;
 }
 

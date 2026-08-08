@@ -20,6 +20,7 @@ import {
   getRequiredParts,
   recommendedGradeForStars,
   recommendBuilds,
+  recommendLoadoutFocusBuilds,
 } from "../planner.mjs";
 
 test("official snapshot includes the current full catalogue shape", () => {
@@ -59,6 +60,62 @@ test("water-focused recommendations rise to the top against Anjanath", () => {
   assert.equal(builds.length, 6);
   assert.equal(builds[0].weapon.element?.type, "Water");
   assert.equal(builds[0].armor.length, 5);
+});
+
+test("saved loadout focus suggestions stay within owned same-type gear and rank raw focus", () => {
+  const baselineWeapon = GAME_DATA.weapons.find((item) => item.id === "lagombi_greatsword");
+  const alternativeWeapon = GAME_DATA.weapons
+    .filter((item) => item.type === baselineWeapon.type && item.id !== baselineWeapon.id)
+    .sort((left, right) => right.attack - left.attack)[0];
+  const ownedGearIds = new Set([baselineWeapon.id, alternativeWeapon.id]);
+  const baselineArmor = [];
+
+  for (const part of getRequiredParts(GAME_DATA)) {
+    const piece = GAME_DATA.armor.find((item) => item.part === part);
+    ownedGearIds.add(piece.id);
+    baselineArmor.push(piece);
+  }
+
+  const builds = recommendLoadoutFocusBuilds({
+    baselineBuild: { weapon: baselineWeapon, armor: baselineArmor },
+    focus: "raw",
+    ownedGearIds,
+    data: GAME_DATA,
+  });
+
+  assert.ok(builds.length > 0);
+  assert.equal(builds[0].weapon.type, baselineWeapon.type);
+  assert.ok(ownedGearIds.has(builds[0].weapon.id));
+  assert.ok(builds.every((build) => build.armor.length === 5));
+  assert.ok(builds[0].focusScore >= builds.at(-1).focusScore);
+});
+
+test("element focus suggestions preserve an elemental direction when baseline has one", () => {
+  const baselineWeapon = GAME_DATA.weapons.find((item) => item.element?.type === "Ice" && item.type === "Great Sword");
+  const ownedGearIds = new Set([baselineWeapon.id]);
+  const baselineArmor = [];
+
+  for (const part of getRequiredParts(GAME_DATA)) {
+    const matchingSkillPiece = GAME_DATA.armor.find((item) =>
+      item.part === part && item.skills.some((skill) => skill.name.includes("Ice Attack")));
+    const fallbackPiece = GAME_DATA.armor.find((item) => item.part === part);
+    const piece = matchingSkillPiece ?? fallbackPiece;
+    ownedGearIds.add(piece.id);
+    baselineArmor.push(piece);
+  }
+
+  const builds = recommendLoadoutFocusBuilds({
+    baselineBuild: { weapon: baselineWeapon, armor: baselineArmor },
+    focus: "element",
+    ownedGearIds,
+    data: GAME_DATA,
+  });
+
+  assert.ok(builds.length > 0);
+  assert.equal(builds[0].focus, "element");
+  assert.equal(builds[0].weapon.type, baselineWeapon.type);
+  assert.equal(builds[0].weapon.element?.type, "Ice");
+  assert.ok(builds[0].damage.potentialElement >= 0);
 });
 
 test("monster series links resolve to its official gear", () => {
