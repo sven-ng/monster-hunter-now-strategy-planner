@@ -968,6 +968,8 @@ function renderLoadoutSelectionPreview() {
   const selectedArmor = getRequiredParts(GAME_DATA)
     .map((part) => gearById[elements.loadoutParts[part]?.value])
     .filter(Boolean);
+  const displayedWeapon = selectedWeapon ? displayGear(selectedWeapon) : null;
+  const displayedArmor = selectedArmor.map(displayGear);
 
   if (!selectedWeapon && !selectedArmor.length) {
     container.innerHTML = '<p class="driftsmelt-loadout-note">Pick a weapon or armor piece to preview its attack, defense, element, and skills before saving this loadout.</p>';
@@ -975,9 +977,12 @@ function renderLoadoutSelectionPreview() {
   }
 
   const cards = [
-    selectedWeapon ? loadoutSelectionPreviewCard(displayGear(selectedWeapon), { label: selectedWeapon.type, link: `weapons.html?gear=${encodeURIComponent(selectedWeapon.id)}` }) : "",
-    ...selectedArmor.map((piece) => loadoutSelectionPreviewCard(displayGear(piece), { label: piece.part, link: `armor.html?gear=${encodeURIComponent(piece.id)}` })),
+    displayedWeapon ? loadoutSelectionPreviewCard(displayedWeapon, { label: selectedWeapon.type, link: `weapons.html?gear=${encodeURIComponent(selectedWeapon.id)}` }) : "",
+    ...displayedArmor.map((piece) => loadoutSelectionPreviewCard(piece, { label: piece.part, link: `armor.html?gear=${encodeURIComponent(piece.id)}` })),
   ].filter(Boolean).join("");
+  const summary = displayedWeapon
+    ? loadoutSelectionTotalsMarkup(displayedWeapon, displayedArmor)
+    : "";
 
   container.innerHTML = `
     <div class="loadout-driftsmelt-heading">
@@ -985,7 +990,39 @@ function renderLoadoutSelectionPreview() {
       <h3>See each choice before you save</h3>
       <p>The picker text now includes key stats, and these cards show the full current Grade, Level, and equipment skills for what you selected.</p>
     </div>
+    ${summary}
     <div class="loadout-selection-grid">${cards}</div>
+  `;
+}
+
+function loadoutSelectionTotalsMarkup(weapon, armor) {
+  const build = { weapon, armor };
+  const finalStats = calculateFinalLoadoutStats(build);
+  const combinedSkills = aggregateSkills([weapon, ...armor]);
+  const armorMissing = Math.max(0, getRequiredParts(GAME_DATA).length - armor.length);
+  const rawDetail = formatRawStatDetail(weapon.attack, finalStats);
+  const elementSummary = formatElementStatSummary(finalStats);
+
+  return `
+    <div class="loadout-selection-summary">
+      <div class="section-heading compact-heading">
+        <div>
+          <p class="eyebrow">Total build preview</p>
+          <h2>Current edited loadout totals</h2>
+        </div>
+        <span class="data-note">${armorMissing ? `${armorMissing} armor slot${armorMissing === 1 ? "" : "s"} still missing` : "All six gear slots selected"}</span>
+      </div>
+      <div class="final-stat-grid">
+        <span><small>Total raw</small><b>${finalStats.rawAttack}</b><em>${rawDetail}</em></span>
+        <span><small>Total affinity</small><b>${finalStats.affinity >= 0 ? "+" : ""}${finalStats.affinity}%</b><em>${finalStats.baseAffinity >= 0 ? "+" : ""}${finalStats.baseAffinity}% weapon base</em></span>
+        <span><small>Total element</small><b>${elementSummary.value}</b><em>${elementSummary.detail}</em></span>
+        <span><small>Total defense</small><b>${finalStats.defense}</b><em>${armor.length} equipped armor piece${armor.length === 1 ? "" : "s"}</em></span>
+      </div>
+      <div class="summary-skill-panel">
+        <p class="eyebrow">Total skills</p>
+        ${skillChips(combinedSkills)}
+      </div>
+    </div>
   `;
 }
 
