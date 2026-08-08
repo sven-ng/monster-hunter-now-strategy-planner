@@ -1,7 +1,7 @@
-import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-08-loadout-focus";
-import { applyDriftsmeltSkills } from "./driftsmelt.mjs?v=2026-08-08-loadout-focus";
-import { canonicalSkillName } from "./skill-utils.mjs?v=2026-08-08-loadout-focus";
-import { applyWeaponStyleProfile, normalizeWeaponStyleProfile } from "./weapon-style.mjs?v=2026-08-08-loadout-focus";
+import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-08-loadout-element-lock";
+import { applyDriftsmeltSkills } from "./driftsmelt.mjs?v=2026-08-08-loadout-element-lock";
+import { canonicalSkillName } from "./skill-utils.mjs?v=2026-08-08-loadout-element-lock";
+import { applyWeaponStyleProfile, normalizeWeaponStyleProfile } from "./weapon-style.mjs?v=2026-08-08-loadout-element-lock";
 
 const ELEMENT_SKILL_NAMES = new Set([
   "Fire Attack",
@@ -381,6 +381,7 @@ export function recommendLoadoutFocusBuilds({
 
   const armorByPart = groupArmorByPart(data);
   const normalizedFocus = ["raw", "element", "skills"].includes(focus) ? focus : "raw";
+  const baselineElementType = baselineBuild.weapon.element?.type;
   const sameTypeOwnedWeapons = data.weapons.filter((weapon) =>
     weapon.type === baselineBuild.weapon.type && ownedGearIds.has(weapon.id),
   );
@@ -390,9 +391,14 @@ export function recommendLoadoutFocusBuilds({
     return "attack" in selected ? applyWeaponStyleProfile(selected, weaponStyleProfiles[gear.id]) : selected;
   };
 
-  const weaponPool = sameTypeOwnedWeapons.length
-    ? sameTypeOwnedWeapons
-    : data.weapons.filter((weapon) => weapon.type === baselineBuild.weapon.type && weapon.id === baselineBuild.weapon.id);
+  const focusLockedWeaponPool = normalizedFocus === "element" && baselineElementType
+    ? sameTypeOwnedWeapons.filter((weapon) => weapon.element?.type === baselineElementType)
+    : sameTypeOwnedWeapons;
+  const weaponPool = focusLockedWeaponPool.length
+    ? focusLockedWeaponPool
+    : sameTypeOwnedWeapons.length
+      ? sameTypeOwnedWeapons
+      : data.weapons.filter((weapon) => weapon.type === baselineBuild.weapon.type && weapon.id === baselineBuild.weapon.id);
   const weaponCandidates = rankLoadoutWeapons(
     weaponPool.map(selectedGear),
     baselineBuild,

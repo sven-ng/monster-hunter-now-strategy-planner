@@ -92,7 +92,9 @@ test("saved loadout focus suggestions stay within owned same-type gear and rank 
 
 test("element focus suggestions preserve an elemental direction when baseline has one", () => {
   const baselineWeapon = GAME_DATA.weapons.find((item) => item.element?.type === "Ice" && item.type === "Great Sword");
-  const ownedGearIds = new Set([baselineWeapon.id]);
+  const differentElementWeapon = GAME_DATA.weapons.find((item) =>
+    item.type === baselineWeapon.type && item.element?.type === "Fire");
+  const ownedGearIds = new Set([baselineWeapon.id, differentElementWeapon.id]);
   const baselineArmor = [];
 
   for (const part of getRequiredParts(GAME_DATA)) {
@@ -115,6 +117,7 @@ test("element focus suggestions preserve an elemental direction when baseline ha
   assert.equal(builds[0].focus, "element");
   assert.equal(builds[0].weapon.type, baselineWeapon.type);
   assert.equal(builds[0].weapon.element?.type, "Ice");
+  assert.ok(builds.every((build) => build.weapon.element?.type === "Ice"));
   assert.ok(builds[0].damage.potentialElement >= 0);
 });
 
