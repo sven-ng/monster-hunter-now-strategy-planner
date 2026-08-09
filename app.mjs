@@ -1447,6 +1447,7 @@ function loadoutOutlookMarkup(evaluations) {
 
 function loadoutSuggestionsMarkup(activeLoadout, baselineBuild, currentFocusBuild, builds) {
   const baselineStats = calculateFinalLoadoutStats(baselineBuild, { assumeWeakPoint: state.assumeWeakPoint });
+  const topSuggestion = builds[0] ?? null;
   const topFocusScore = builds[0]?.focusScore ?? currentFocusBuild?.focusScore ?? 0;
   const currentGap = currentFocusBuild ? Math.round(topFocusScore - currentFocusBuild.focusScore) : 0;
   const cards = builds.length
@@ -1468,7 +1469,7 @@ function loadoutSuggestionsMarkup(activeLoadout, baselineBuild, currentFocusBuil
           <div class="damage-total"><small>Your focus score</small><strong>${Math.round(currentFocusBuild.focusScore)}</strong><em>${currentGap > 0 ? `${currentGap} behind the top suggestion` : "already matching the top suggestion"}</em></div>
           <div class="damage-breakdown"><span>${formatRawBreakdown(currentFocusBuild.weapon.attack, currentFocusBuild.damage)}</span><span>${formatElementBreakdown(currentFocusBuild.damage)}</span><span>${currentFocusBuild.damage.defense} defense</span></div>
         </div>
-        <div class="build-grid">${loadoutBenchmarkCard(currentFocusBuild, baselineStats)}${cards}</div>
+        <div class="build-grid">${loadoutBenchmarkCard(currentFocusBuild, topSuggestion, baselineStats)}${cards}</div>
       ` : `<div class="build-grid">${cards}</div>`}
     </section>
   `;
@@ -1507,9 +1508,17 @@ function loadoutSuggestionCard(build, index, baselineStats) {
   `;
 }
 
-function loadoutBenchmarkCard(build, baselineStats) {
+function loadoutBenchmarkCard(build, topSuggestion, baselineStats) {
   const damage = build.damage ?? calculateFinalLoadoutStats(build, { assumeWeakPoint: state.assumeWeakPoint });
-  const comparison = {
+  const topSuggestionDamage = topSuggestion?.damage ?? (topSuggestion
+    ? calculateFinalLoadoutStats(topSuggestion, { assumeWeakPoint: state.assumeWeakPoint })
+    : null);
+  const comparison = topSuggestionDamage ? {
+    rawDelta: damage.rawAttack - topSuggestionDamage.rawAttack,
+    elementDelta: damage.potentialElement - topSuggestionDamage.potentialElement,
+    defenseDelta: damage.defense - topSuggestionDamage.defense,
+    affinityDelta: damage.affinity - topSuggestionDamage.affinity,
+  } : {
     rawDelta: 0,
     elementDelta: 0,
     defenseDelta: 0,
@@ -1523,9 +1532,11 @@ function loadoutBenchmarkCard(build, baselineStats) {
   ].join("");
   const topSkills = aggregateSkills([build.weapon, ...build.armor]).slice(0, 6);
   const baselineReference = Math.round(build.focusScore);
-  const scoreContext = baselineStats.referenceDamage === damage.referenceDamage
-    ? "this is your current benchmark"
-    : "baseline review snapshot";
+  const scoreContext = topSuggestion
+    ? "compared against the top suggestion"
+    : baselineStats.referenceDamage === damage.referenceDamage
+      ? "this is your current benchmark"
+      : "baseline review snapshot";
   return `
     <article class="build-card baseline-build-card">
       <div class="build-hero">${imageMarkup(build.weapon, "build-weapon-image")}
