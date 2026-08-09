@@ -15,11 +15,23 @@ const ELEMENT_SKILL_NAMES = new Set([
 
 const ATTACK_SKILL_SCORES = {
   Burst: 28,
+  "Advanced Burst": 34,
   "Weakness Exploit": 34,
   "Critical Eye": 22,
   "Special Boost": 16,
   "Artful Dodger": 8,
   "Reload Speed": 8,
+  "Recoil Down": 8,
+  "Evading Reload": 10,
+  "Critical Range Boost": 12,
+  "Normal/Element Ammo Boost": 16,
+  "Slicing Ammo Boost": 14,
+  "Offensive Dodger": 16,
+  "Aggressive Dodger": 14,
+  "Critical Element": 20,
+  "Charge Master": 18,
+  "Focus": 12,
+  "Lock On": 12,
   "Health Boost": 12,
   "Defense Boost": 10,
   "Firm Foothold": 4,
@@ -64,6 +76,68 @@ const ELEMENT_PERCENT_SKILL_RULES = {
   "Namielle Electrowave": { elementType: "Water", multipliers: [0, 0.1, 0.15, 0.25] },
   "Malzeno Crimsonblood": { elementType: "Dragon", multipliers: [0, 0.1, 0.15, 0.25] },
   "Velkhana Aegis": { elementType: "Ice", multipliers: [0, 0.1, 0.15, 0.2] },
+};
+
+const WEAPON_TYPE_SKILL_WEIGHTS = {
+  "Dual Blades": {
+    raw: {
+      Burst: 42,
+      "Advanced Burst": 52,
+      "Offensive Dodger": 28,
+      "Aggressive Dodger": 24,
+      "Artful Dodger": 18,
+      "Lock On": 10,
+      "Critical Element": 20,
+    },
+    element: {
+      Burst: 30,
+      "Advanced Burst": 38,
+      "Critical Element": 34,
+      "Offensive Dodger": 18,
+      "Aggressive Dodger": 16,
+      "Artful Dodger": 14,
+      "Lock On": 8,
+    },
+    skills: {
+      Burst: 48,
+      "Advanced Burst": 58,
+      "Offensive Dodger": 34,
+      "Aggressive Dodger": 30,
+      "Artful Dodger": 24,
+      "Critical Element": 30,
+      "Lock On": 10,
+    },
+  },
+  "Light Bowgun": {
+    raw: {
+      "Reload Speed": 36,
+      "Recoil Down": 36,
+      "Evading Reload": 28,
+      "Critical Range Boost": 30,
+      "Normal/Element Ammo Boost": 42,
+      "Slicing Ammo Boost": 36,
+      "Special Boost": 16,
+    },
+    element: {
+      "Reload Speed": 30,
+      "Recoil Down": 30,
+      "Evading Reload": 24,
+      "Critical Range Boost": 28,
+      "Normal/Element Ammo Boost": 46,
+      "Slicing Ammo Boost": 24,
+      "Critical Element": 24,
+      "Special Boost": 14,
+    },
+    skills: {
+      "Reload Speed": 42,
+      "Recoil Down": 42,
+      "Evading Reload": 34,
+      "Critical Range Boost": 34,
+      "Normal/Element Ammo Boost": 44,
+      "Slicing Ammo Boost": 32,
+      "Special Boost": 18,
+    },
+  },
 };
 
 for (const [name, rule] of Object.entries(ELEMENT_PERCENT_SKILL_RULES)) {
@@ -724,6 +798,7 @@ function weaponFocusPotential(weapon, damage, baselineBuild, focus) {
 
 function armorFocusPotential(piece, baselineBuild, focus) {
   const preferredElement = preferredLoadoutElement(baselineBuild, null, focus);
+  const weaponType = baselineBuild.weapon?.type ?? "";
   return piece.defense * 0.06 + (piece.skills ?? []).reduce((total, skill) => {
     const level = effectiveSkillLevel(skill.name, skill.level);
     if (skill.name === "Attack Boost") return total + (focus === "raw" ? 120 : 90) * level;
@@ -735,6 +810,10 @@ function armorFocusPotential(piece, baselineBuild, focus) {
     if (preferredElement && skill.name === preferredElement) return total + (focus === "element" ? 170 : 90) * level;
     if (preferredElement && skill.name === `Advanced ${preferredElement.replace(" Attack", "")} Attack`) {
       return total + (focus === "element" ? 210 : 120) * level;
+    }
+    const weaponSpecificWeight = weaponTypeSkillWeight(weaponType, skill.name, focus);
+    if (weaponSpecificWeight) {
+      return total + weaponSpecificWeight * level;
     }
     return total + skillScore([skill]) * (focus === "skills" ? 1.45 : 1);
   }, 0);
@@ -752,10 +831,25 @@ function preferredLoadoutElement(baselineBuild, weapon, focus) {
 
 function scoreLoadoutFocusBuild({ weapon, armor, damage, summary, focus, baselineBuild, assumeWeakPoint }) {
   const aggregatedSkills = summary.aggregatedSkills ?? aggregateSkills([weapon, ...armor]);
+  const weaponType = weapon.type ?? baselineBuild.weapon?.type ?? "";
   const skillTotal = aggregatedSkills.reduce((total, skill) =>
-    total + focusedSkillWeight(skill.name, skill.level, focus, preferredLoadoutElement(baselineBuild, weapon, focus), assumeWeakPoint), 0);
+    total + focusedSkillWeight(
+      skill.name,
+      skill.level,
+      focus,
+      preferredLoadoutElement(baselineBuild, weapon, focus),
+      assumeWeakPoint,
+      weaponType,
+    ), 0);
   const wastedSkillPenalty = aggregatedSkills.reduce((total, skill) =>
-    total + overflowSkillPenalty(skill.name, skill.level, focus, preferredLoadoutElement(baselineBuild, weapon, focus), assumeWeakPoint), 0);
+    total + overflowSkillPenalty(
+      skill.name,
+      skill.level,
+      focus,
+      preferredLoadoutElement(baselineBuild, weapon, focus),
+      assumeWeakPoint,
+      weaponType,
+    ), 0);
   if (focus === "element") {
     const preferredElement = preferredLoadoutElement(baselineBuild, weapon, focus);
     const sameElementBonus = preferredElement && weapon.element?.type === preferredElement.replace(" Attack", "") ? 320 : 0;
@@ -767,8 +861,12 @@ function scoreLoadoutFocusBuild({ weapon, armor, damage, summary, focus, baselin
   return damage.rawAttack * 2.6 + damage.expectedRaw * 1.35 + damage.potentialElement * 0.3 + skillTotal * 6 + damage.defense * 0.04 - wastedSkillPenalty;
 }
 
-function focusedSkillWeight(name, level, focus, preferredElement, assumeWeakPoint) {
+function focusedSkillWeight(name, level, focus, preferredElement, assumeWeakPoint, weaponType = "") {
   const effectiveLevel = effectiveSkillLevel(name, level);
+  const weaponSpecificWeight = weaponTypeSkillWeight(weaponType, name, focus);
+  if (weaponSpecificWeight) {
+    return effectiveLevel * weaponSpecificWeight;
+  }
   if (name === "Attack Boost") return effectiveLevel * (focus === "raw" ? 28 : 18);
   if (name === "Advanced Attack Boost") return effectiveLevel * (focus === "raw" ? 38 : 24);
   if (name === "Attack Efficacy") return effectiveLevel * (focus === "raw" ? 44 : 30);
@@ -782,17 +880,21 @@ function focusedSkillWeight(name, level, focus, preferredElement, assumeWeakPoin
   return (ATTACK_SKILL_SCORES[name] ?? 4) * effectiveLevel;
 }
 
-function overflowSkillPenalty(name, level, focus, preferredElement, assumeWeakPoint) {
+function overflowSkillPenalty(name, level, focus, preferredElement, assumeWeakPoint, weaponType = "") {
   const overflowLevel = overflowSkillLevels(name, level);
   if (!overflowLevel) {
     return 0;
   }
-  const effectiveWeight = focusedSkillWeight(name, level, focus, preferredElement, assumeWeakPoint);
+  const effectiveWeight = focusedSkillWeight(name, level, focus, preferredElement, assumeWeakPoint, weaponType);
   const effectiveLevel = effectiveSkillLevel(name, level);
   const perLevelWeight = effectiveLevel > 0
     ? effectiveWeight / effectiveLevel
     : (ATTACK_SKILL_SCORES[name] ?? 6);
   return overflowLevel * perLevelWeight * 1.5;
+}
+
+function weaponTypeSkillWeight(weaponType, skillName, focus) {
+  return WEAPON_TYPE_SKILL_WEIGHTS[weaponType]?.[focus]?.[skillName] ?? 0;
 }
 
 function effectiveSkillLevel(name, level) {

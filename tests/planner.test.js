@@ -233,6 +233,107 @@ test("raw focus penalizes overcapped attack skills and does not let defense domi
   assert.ok(optimized.focusScore > wasteful.focusScore);
 });
 
+test("dual blades focus rewards burst-style skills over generic filler", () => {
+  const optimizedBuild = {
+    weapon: {
+      id: "db-optimized",
+      name: "Tempest Fangs",
+      type: "Dual Blades",
+      grade: 10,
+      level: 5,
+      attack: 1600,
+      affinity: 10,
+      element: { type: "Thunder", value: 700 },
+      skills: [],
+      styleProfile: null,
+    },
+    armor: [
+      { id: "db-head-1", part: "Head", defense: 100, skills: [{ name: "Burst", level: 3 }] },
+      { id: "db-chest-1", part: "Chest", defense: 100, skills: [{ name: "Offensive Dodger", level: 2 }] },
+      { id: "db-arms-1", part: "Arms", defense: 100, skills: [{ name: "Artful Dodger", level: 2 }] },
+      { id: "db-waist-1", part: "Waist", defense: 100, skills: [] },
+      { id: "db-legs-1", part: "Legs", defense: 100, skills: [] },
+    ],
+  };
+  const genericBuild = {
+    weapon: {
+      ...optimizedBuild.weapon,
+      id: "db-generic",
+      affinity: 0,
+    },
+    armor: [
+      { id: "db-head-2", part: "Head", defense: 115, skills: [{ name: "Fire Resistance", level: 2 }] },
+      { id: "db-chest-2", part: "Chest", defense: 115, skills: [{ name: "Health Boost", level: 2 }] },
+      { id: "db-arms-2", part: "Arms", defense: 115, skills: [{ name: "Defense Boost", level: 2 }] },
+      { id: "db-waist-2", part: "Waist", defense: 115, skills: [] },
+      { id: "db-legs-2", part: "Legs", defense: 115, skills: [] },
+    ],
+  };
+
+  const optimized = evaluateLoadoutFocusBuild(optimizedBuild, {
+    focus: "skills",
+    baselineBuild: optimizedBuild,
+    assumeWeakPoint: false,
+  });
+  const generic = evaluateLoadoutFocusBuild(genericBuild, {
+    focus: "skills",
+    baselineBuild: optimizedBuild,
+    assumeWeakPoint: false,
+  });
+
+  assert.ok(optimized.focusScore > generic.focusScore);
+});
+
+test("light bowgun focus rewards reload and recoil support skills", () => {
+  const optimizedBuild = {
+    weapon: {
+      id: "lbg-optimized",
+      name: "Lotus Tempest",
+      type: "Light Bowgun",
+      grade: 10,
+      level: 5,
+      attack: 1500,
+      affinity: 0,
+      element: null,
+      skills: [],
+      styleProfile: null,
+    },
+    armor: [
+      { id: "lbg-head-1", part: "Head", defense: 100, skills: [{ name: "Reload Speed", level: 2 }] },
+      { id: "lbg-chest-1", part: "Chest", defense: 100, skills: [{ name: "Recoil Down", level: 2 }] },
+      { id: "lbg-arms-1", part: "Arms", defense: 100, skills: [{ name: "Critical Range Boost", level: 2 }] },
+      { id: "lbg-waist-1", part: "Waist", defense: 100, skills: [] },
+      { id: "lbg-legs-1", part: "Legs", defense: 100, skills: [] },
+    ],
+  };
+  const genericBuild = {
+    weapon: {
+      ...optimizedBuild.weapon,
+      id: "lbg-generic",
+    },
+    armor: [
+      { id: "lbg-head-2", part: "Head", defense: 120, skills: [{ name: "Fire Resistance", level: 2 }] },
+      { id: "lbg-chest-2", part: "Chest", defense: 120, skills: [{ name: "Health Boost", level: 2 }] },
+      { id: "lbg-arms-2", part: "Arms", defense: 120, skills: [{ name: "Defense Boost", level: 2 }] },
+      { id: "lbg-waist-2", part: "Waist", defense: 120, skills: [] },
+      { id: "lbg-legs-2", part: "Legs", defense: 120, skills: [] },
+    ],
+  };
+
+  const optimized = evaluateLoadoutFocusBuild(optimizedBuild, {
+    focus: "raw",
+    baselineBuild: optimizedBuild,
+    assumeWeakPoint: false,
+  });
+  const generic = evaluateLoadoutFocusBuild(genericBuild, {
+    focus: "raw",
+    baselineBuild: optimizedBuild,
+    assumeWeakPoint: false,
+  });
+
+  assert.ok(optimized.focusScore > generic.focusScore);
+});
+
 test("monster series links resolve to its official gear", () => {
   const usage = getMonsterMaterialUsage("greatjagras", GAME_DATA);
   assert.ok(usage.length > 0);
