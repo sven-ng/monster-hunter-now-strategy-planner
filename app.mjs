@@ -4,7 +4,7 @@ import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmelt
 import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs?v=2026-08-08-loadout-element-lock";
 import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs?v=2026-08-08-loadout-element-lock";
 import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-08-loadout-element-lock";
-import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions, skillMetadata } from "./skill-utils.mjs?v=2026-08-09-elder-element-bonuses";
+import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions, skillMetadata } from "./skill-utils.mjs?v=2026-08-09-current-focus-benchmark";
 import { buildUpgradePlan } from "./upgrade-planner.mjs?v=2026-08-08-loadout-element-lock";
 import { applyWeaponStyleProfile, defaultWeaponStyleProfile, hasWeaponStyleBonus, isRiftborneMaterial, monsterHasRiftborne, normalizeWeaponStyleProfile, weaponSupportsStyle } from "./weapon-style.mjs?v=2026-08-08-loadout-element-lock";
 import {
@@ -17,8 +17,9 @@ import {
   getRequiredParts,
   recommendedGradeForStars,
   recommendBuilds,
+  evaluateLoadoutFocusBuild,
   recommendLoadoutFocusBuilds,
-} from "./planner.mjs?v=2026-08-09-elder-element-bonuses";
+} from "./planner.mjs?v=2026-08-09-current-focus-benchmark";
 
 const OWNED_STORAGE_KEY = "mhnow-strategy-planner-owned-gear";
 const GEAR_PROGRESS_STORAGE_KEY = "mhnow-strategy-planner-gear-progress";
@@ -891,6 +892,11 @@ function renderLoadoutReview() {
 
   const build = hydrateLoadout(activeLoadout, GAME_DATA, { weaponStyleProfiles: state.weaponStyleProfiles });
   const finalStats = calculateFinalLoadoutStats(build, { assumeWeakPoint: state.assumeWeakPoint });
+  const currentFocusBuild = evaluateLoadoutFocusBuild(build, {
+    focus: state.loadoutSuggestionFocus,
+    baselineBuild: build,
+    assumeWeakPoint: state.assumeWeakPoint,
+  });
   state.loadoutSuggestedBuilds = recommendLoadoutFocusBuilds({
     baselineBuild: build,
     focus: state.loadoutSuggestionFocus,
@@ -910,7 +916,7 @@ function renderLoadoutReview() {
   const counts = evaluations.reduce((totals, item) => ({ ...totals, [item.result.tier]: totals[item.result.tier] + 1 }), { easy: 0, fair: 0, hard: 0 });
   elements.loadoutSummary.innerHTML = savedLoadoutSummary(activeLoadout, build, counts, finalStats);
   if (elements.loadoutSuggestions) {
-    elements.loadoutSuggestions.innerHTML = loadoutSuggestionsMarkup(activeLoadout, build, state.loadoutSuggestedBuilds);
+    elements.loadoutSuggestions.innerHTML = loadoutSuggestionsMarkup(activeLoadout, build, currentFocusBuild, state.loadoutSuggestedBuilds);
     const focusSelect = document.querySelector("#loadout-suggestion-focus");
     if (focusSelect) {
       focusSelect.value = state.loadoutSuggestionFocus;
@@ -1439,8 +1445,10 @@ function loadoutOutlookMarkup(evaluations) {
   `;
 }
 
-function loadoutSuggestionsMarkup(activeLoadout, baselineBuild, builds) {
+function loadoutSuggestionsMarkup(activeLoadout, baselineBuild, currentFocusBuild, builds) {
   const baselineStats = calculateFinalLoadoutStats(baselineBuild, { assumeWeakPoint: state.assumeWeakPoint });
+  const topFocusScore = builds[0]?.focusScore ?? currentFocusBuild?.focusScore ?? 0;
+  const currentGap = currentFocusBuild ? Math.round(topFocusScore - currentFocusBuild.focusScore) : 0;
   const cards = builds.length
     ? builds.map((build, index) => loadoutSuggestionCard(build, index, baselineStats)).join("")
     : '<p class="empty-state">No owned same-weapon-type alternatives found yet. Forge more gear, then reopen this review.</p>';
@@ -1450,11 +1458,18 @@ function loadoutSuggestionsMarkup(activeLoadout, baselineBuild, builds) {
         <div>
           <p class="eyebrow">Best loadout suggestion</p>
           <h2>Rebuild ${activeLoadout.name} around one focus</h2>
-          <p class="section-copy">These suggestions only use your forged same-weapon-type gear, then optimize for raw attack, element attack, or offensive skills.</p>
+          <p class="section-copy">Your current build now uses the same focus-score model as the suggestions, so you can benchmark it directly before swapping gear.</p>
         </div>
         <label class="inline-select">Suggestion focus<select id="loadout-suggestion-focus"><option value="raw">Raw attack</option><option value="element">Element attack</option><option value="skills">Skills</option></select></label>
       </div>
-      <div class="build-grid">${cards}</div>
+      ${currentFocusBuild ? `
+        <div class="focus-benchmark-banner">
+          <span class="status-pill fair">Current ${currentFocusBuild.focusLabel.toLowerCase()}</span>
+          <div class="damage-total"><small>Your focus score</small><strong>${Math.round(currentFocusBuild.focusScore)}</strong><em>${currentGap > 0 ? `${currentGap} behind the top suggestion` : "already matching the top suggestion"}</em></div>
+          <div class="damage-breakdown"><span>${formatRawBreakdown(currentFocusBuild.weapon.attack, currentFocusBuild.damage)}</span><span>${formatElementBreakdown(currentFocusBuild.damage)}</span><span>${currentFocusBuild.damage.defense} defense</span></div>
+        </div>
+        <div class="build-grid">${loadoutBenchmarkCard(currentFocusBuild, baselineStats)}${cards}</div>
+      ` : `<div class="build-grid">${cards}</div>`}
     </section>
   `;
 }
@@ -1488,6 +1503,43 @@ function loadoutSuggestionCard(build, index, baselineStats) {
       <div class="summary-skill-panel compact-panel"><p class="eyebrow">Total skills</p>${skillChips(topSkills)}</div>
       <button class="save-suggestion" type="button" data-save-loadout-suggestion="${index}">Save as new loadout</button>
       <div class="loadout-list"><p>Suggested gear swap</p><ul>${build.armor.map((piece) => `<li>${imageMarkup(piece, "loadout-icon")}<span>${piece.part}</span>${piece.name}</li>`).join("")}</ul></div>
+    </article>
+  `;
+}
+
+function loadoutBenchmarkCard(build, baselineStats) {
+  const damage = build.damage ?? calculateFinalLoadoutStats(build, { assumeWeakPoint: state.assumeWeakPoint });
+  const comparison = {
+    rawDelta: 0,
+    elementDelta: 0,
+    defenseDelta: 0,
+    affinityDelta: 0,
+  };
+  const comparisonTokens = [
+    comparisonToken("Raw", comparison.rawDelta),
+    comparisonToken("Element", comparison.elementDelta),
+    comparisonToken("Defense", comparison.defenseDelta),
+    comparisonToken("Affinity", comparison.affinityDelta, "%"),
+  ].join("");
+  const topSkills = aggregateSkills([build.weapon, ...build.armor]).slice(0, 6);
+  const baselineReference = Math.round(build.focusScore);
+  const scoreContext = baselineStats.referenceDamage === damage.referenceDamage
+    ? "this is your current benchmark"
+    : "baseline review snapshot";
+  return `
+    <article class="build-card baseline-build-card">
+      <div class="build-hero">${imageMarkup(build.weapon, "build-weapon-image")}
+        <div><span class="type-label">Current build benchmark</span><h2>${build.weapon.name}</h2><p>${build.focusLabel} · ${build.weapon.type} · ${gradeLevelMarkup(build.weapon.grade, build.weapon.level, { compact: true })}</p></div>
+      </div>
+      <div class="build-score">
+        <span class="status-pill fair">${build.focusLabel}</span>
+        <div class="damage-total"><small>Focus score</small><strong>${baselineReference}</strong><em>${scoreContext}</em></div>
+        <div class="damage-breakdown"><span>${formatRawBreakdown(build.weapon.attack, damage)}</span><span>${formatElementBreakdown(damage)}</span><span>${damage.defense} defense</span></div>
+      </div>
+      <div class="suggestion-comparison-grid">${comparisonTokens}</div>
+      <div class="summary-skill-panel compact-panel"><p class="eyebrow">Total skills</p>${skillChips(topSkills)}</div>
+      <a class="secondary-action inline-link-action" href="loadout-editor.html?id=${encodeURIComponent(loadoutIdFromRoute ?? state.activeLoadoutId ?? "")}">Edit this build</a>
+      <div class="loadout-list"><p>Equipped gear</p><ul>${build.armor.map((piece) => `<li>${imageMarkup(piece, "loadout-icon")}<span>${piece.part}</span>${piece.name}</li>`).join("")}</ul></div>
     </article>
   `;
 }

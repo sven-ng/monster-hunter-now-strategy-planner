@@ -15,6 +15,7 @@ import {
   calculateWeaponPower,
   classifyBuildVsMonster,
   calculateFinalLoadoutStats,
+  evaluateLoadoutFocusBuild,
   getGearAtGrade,
   getMaterialUsage,
   getMonsterMaterialUsage,
@@ -135,6 +136,45 @@ test("element focus suggestions preserve an elemental direction when baseline ha
   assert.equal(builds[0].weapon.element?.type, "Ice");
   assert.ok(builds.every((build) => build.weapon.element?.type === "Ice"));
   assert.ok(builds[0].damage.potentialElement >= 0);
+});
+
+test("current loadout can be benchmarked with the same focus-score model as suggestions", () => {
+  const weapon = {
+    id: "weapon-1",
+    name: "Benchmark Blade",
+    type: "Great Sword",
+    grade: 10,
+    level: 5,
+    attack: 1500,
+    affinity: 10,
+    element: { type: "Fire", value: 500 },
+    skills: [{ name: "Attack Boost", level: 4 }],
+    styleProfile: null,
+  };
+  const armor = [{
+    id: "armor-1",
+    part: "Head",
+    defense: 100,
+    skills: [{ name: "Critical Eye", level: 2 }],
+  }, {
+    id: "armor-2",
+    part: "Chest",
+    defense: 110,
+    skills: [{ name: "Fire Attack", level: 3 }],
+  }];
+  const build = { weapon, armor };
+
+  const benchmark = evaluateLoadoutFocusBuild(build, {
+    focus: "element",
+    baselineBuild: build,
+    assumeWeakPoint: true,
+  });
+
+  assert.equal(benchmark.focus, "element");
+  assert.equal(benchmark.focusLabel, "Element focus");
+  assert.ok(benchmark.focusScore > 0);
+  assert.equal(benchmark.damage.rawAttack, calculateFinalLoadoutStats(build, { assumeWeakPoint: true }).rawAttack);
+  assert.deepEqual(benchmark.aggregatedSkills.map((skill) => skill.name), ["Attack Boost", "Fire Attack", "Critical Eye"]);
 });
 
 test("monster series links resolve to its official gear", () => {

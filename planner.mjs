@@ -515,6 +515,38 @@ export function recommendLoadoutFocusBuilds({
   ).slice(0, 4);
 }
 
+export function evaluateLoadoutFocusBuild(build, {
+  focus = "raw",
+  baselineBuild = build,
+  assumeWeakPoint = false,
+} = {}) {
+  if (!build?.weapon) {
+    return null;
+  }
+
+  const normalizedFocus = ["raw", "element", "skills"].includes(focus) ? focus : "raw";
+  const damage = calculateFinalLoadoutStats(build, { assumeWeakPoint });
+  const summary = buildSummary(build);
+  const focusScore = scoreLoadoutFocusBuild({
+    weapon: build.weapon,
+    armor: build.armor,
+    damage,
+    summary,
+    focus: normalizedFocus,
+    baselineBuild,
+    assumeWeakPoint,
+  });
+
+  return {
+    ...build,
+    damage,
+    focus: normalizedFocus,
+    focusScore,
+    focusLabel: loadoutFocusLabel(normalizedFocus),
+    ...summary,
+  };
+}
+
 export function applySuggestedDriftsmeltSkills({
   weapon,
   armor,
