@@ -36,6 +36,21 @@ test("official snapshot includes the current full catalogue shape", () => {
   assert.ok(GAME_DATA.armor.every((piece) => piece.gradeOptions.every((option) => Number.isInteger(option.driftsmeltSlots))));
 });
 
+test("current public skills no longer fall back to the generic placeholder description", () => {
+  const currentSkills = new Set();
+  for (const gear of [...GAME_DATA.weapons, ...GAME_DATA.armor]) {
+    for (const skill of gear.skills ?? []) currentSkills.add(canonicalSkillName(skill.name));
+    for (const option of gear.gradeOptions ?? []) {
+      for (const skill of option.skills ?? []) currentSkills.add(canonicalSkillName(skill.name));
+    }
+  }
+
+  const unresolved = [...currentSkills]
+    .filter((name) => skillDescription(name, 1, "Official guide skill").includes("not mapped yet"));
+
+  assert.deepEqual(unresolved, []);
+});
+
 test("profile exports preserve a portable planner profile and reject unrelated files", () => {
   const profile = { ownedGearIds: ["greatjagras_gunlance"], targetStars: 8, savedLoadouts: [] };
   const exported = createProfileExport(profile, "2026-08-06T00:00:00.000Z");
@@ -232,7 +247,7 @@ test("catalogue filters combine item attributes with persistent favorites", () =
   }, favorites, forged);
   const armorPieces = filterArmor(GAME_DATA.armor, {
     query: "",
-    skill: armor.skills[0].name,
+    skill: canonicalSkillName(armor.skills[0].name),
     monster: armor.sourceMonsterId,
     driftsmeltSlots: "1",
     favoritesOnly: true,

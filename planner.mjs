@@ -1,6 +1,6 @@
 import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-08-loadout-element-lock";
 import { applyDriftsmeltSkills } from "./driftsmelt.mjs?v=2026-08-08-loadout-element-lock";
-import { canonicalSkillName } from "./skill-utils.mjs?v=2026-08-08-loadout-element-lock";
+import { canonicalSkillName } from "./skill-utils.mjs?v=2026-08-09-skill-bulk-sync";
 import { applyWeaponStyleProfile, normalizeWeaponStyleProfile } from "./weapon-style.mjs?v=2026-08-08-loadout-element-lock";
 
 const ELEMENT_SKILL_NAMES = new Set([

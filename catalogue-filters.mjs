@@ -1,5 +1,5 @@
-import { canonicalSkillName } from "./skill-utils.mjs?v=2026-08-07-skill-rename-refresh";
-import { isRiftborneMaterial, monsterHasRiftborne, weaponSupportsStyle } from "./weapon-style.mjs?v=2026-08-07-skill-rename-refresh";
+import { canonicalSkillName } from "./skill-utils.mjs?v=2026-08-09-skill-bulk-sync";
+import { isRiftborneMaterial, monsterHasRiftborne, weaponSupportsStyle } from "./weapon-style.mjs?v=2026-08-07-loadout-preview";
 
 export function filterWeapons(items, filters, favorites = new Set(), forgedGear = new Set(), context = {}) {
   return items.filter((weapon) => {
