@@ -567,3 +567,11 @@ test("Velkhana Armor is normalized to Velkhana Aegis with current official detai
   assert.match(skillDescription("Velkhana Armor", 1), /ice element attack power by 10%/i);
   assert.match(skillDescription("Velkhana Armor", 2), /40% of maximum health/i);
 });
+
+test("Offensive Guard and Offensive Dodger show current official skill detail text", () => {
+  assert.match(skillDescription("Offensive Guard", 1), /10% for 10 seconds after executing a well-timed guard/i);
+  assert.match(skillDescription("Offensive Guard", 5), /40% for 10 seconds after executing a well-timed guard/i);
+  assert.equal(canonicalSkillName("Offensive Dodge"), "Offensive Dodger");
+  assert.match(skillDescription("Offensive Dodger", 1), /10% for 15 seconds after performing a perfect evade/i);
+  assert.match(skillDescription("Offensive Dodge", 5), /35% for 15 seconds after performing a perfect evade/i);
+});

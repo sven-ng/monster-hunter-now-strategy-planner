@@ -4,7 +4,7 @@ import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmelt
 import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs?v=2026-08-08-loadout-element-lock";
 import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs?v=2026-08-08-loadout-element-lock";
 import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-08-loadout-element-lock";
-import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions } from "./skill-utils.mjs?v=2026-08-08-loadout-element-lock";
+import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions } from "./skill-utils.mjs?v=2026-08-09-skill-detail-refresh";
 import { buildUpgradePlan } from "./upgrade-planner.mjs?v=2026-08-08-loadout-element-lock";
 import { applyWeaponStyleProfile, defaultWeaponStyleProfile, hasWeaponStyleBonus, isRiftborneMaterial, monsterHasRiftborne, normalizeWeaponStyleProfile, weaponSupportsStyle } from "./weapon-style.mjs?v=2026-08-08-loadout-element-lock";
 import {

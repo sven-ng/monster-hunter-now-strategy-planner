@@ -1,4 +1,4 @@
-import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-07-skill-rename-refresh";
+import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-09-skill-detail-refresh";
 
 const SKILL_NAME_ALIASES = {
   Powerhouse: "Attack Efficacy",
@@ -8,6 +8,7 @@ const SKILL_NAME_ALIASES = {
   "Ice Attack Boost Secret": "Advanced Ice Attack",
   "Dragon Attack Boost Secret": "Advanced Dragon Attack",
   "Velkhana Armor": "Velkhana Aegis",
+  "Offensive Dodge": "Offensive Dodger",
 };
 
 const SKILL_DESCRIPTIONS = {
@@ -90,6 +91,20 @@ const SKILL_DESCRIPTIONS = {
     "Lv.3: Increases your weapon's ice element value by 200.",
     "Lv.4: Increases your weapon's ice element value by 350.",
     "Lv.5: Increases your weapon's ice element value by 500.",
+  ],
+  "Offensive Guard": [
+    "Lv.1: Increases attack power by 10% for 10 seconds after executing a well-timed guard.",
+    "Lv.2: Increases attack power by 15% for 10 seconds after executing a well-timed guard.",
+    "Lv.3: Increases attack power by 20% for 10 seconds after executing a well-timed guard.",
+    "Lv.4: Increases attack power by 30% for 10 seconds after executing a well-timed guard.",
+    "Lv.5: Increases attack power by 40% for 10 seconds after executing a well-timed guard.",
+  ],
+  "Offensive Dodger": [
+    "Lv.1: Increases damage by 10% for 15 seconds after performing a perfect evade.",
+    "Lv.2: Increases damage by 15% for 15 seconds after performing a perfect evade.",
+    "Lv.3: Increases damage by 20% for 15 seconds after performing a perfect evade.",
+    "Lv.4: Increases damage by 25% for 15 seconds after performing a perfect evade.",
+    "Lv.5: Increases damage by 35% for 15 seconds after performing a perfect evade.",
   ],
   "Advanced Ice Attack": [
     "Lv.1: Increases weapon's ice element value by 200 when Ice Attack Lv5+ is active.",
