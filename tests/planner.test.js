@@ -8,7 +8,7 @@ import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterWea
 import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "../loadouts.mjs";
 import { buildUpgradePlan, getNextGearUpgrade } from "../upgrade-planner.mjs";
 import { isRiftborneMaterial, monsterHasRiftborne, normalizeWeaponStyleProfile, weaponSupportsStyle } from "../weapon-style.mjs";
-import { canonicalSkillName, skillDescription } from "../skill-utils.mjs";
+import { canonicalSkillName, skillDescription, skillMetadata } from "../skill-utils.mjs";
 import {
   aggregateSkills,
   applySuggestedDriftsmeltSkills,
@@ -589,4 +589,10 @@ test("Offensive Guard and Offensive Dodger show current official skill detail te
   assert.equal(canonicalSkillName("Offensive Dodge"), "Offensive Dodger");
   assert.match(skillDescription("Offensive Dodger", 1), /10% for 15 seconds after performing a perfect evade/i);
   assert.match(skillDescription("Offensive Dodge", 5), /35% for 15 seconds after performing a perfect evade/i);
+});
+
+test("skill metadata exposes category and behavior tags for the dialog", () => {
+  assert.deepEqual(skillMetadata("Attack Boost"), { category: "Attack", behavior: "always-on" });
+  assert.deepEqual(skillMetadata("Offensive Guard"), { category: "Attack", behavior: "conditional" });
+  assert.deepEqual(skillMetadata("Feat Of Agility"), { category: "Action", behavior: "weapon-specific" });
 });

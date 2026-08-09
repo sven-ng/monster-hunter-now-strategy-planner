@@ -844,4 +844,531 @@ export const OFFICIAL_SKILL_DESCRIPTIONS = {
   ]
 };
 
-export const OFFICIAL_SKILL_DESCRIPTIONS_GENERATED_AT = "2026-08-09T14:20:06.520Z";
+export const OFFICIAL_SKILL_METADATA = {
+  "Attack Boost": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Advanced Attack Boost": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Peak Performance": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Hellfire Cloak": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Rising Tide": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Burst": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Advanced Burst": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Heroics": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Offensive Guard": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Fortify": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Resentment": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Timed Charger": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Valor": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Shared Sword": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Raw Power": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Attack Efficacy": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Critical Strength": {
+    "category": "Attack",
+    "behavior": "weapon-specific"
+  },
+  "Reckless": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Sneak Attack": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Skyward Striker": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Pursuit": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Blood Cloak": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Resuscitate": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Coalescence": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Aggressive Dodger": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Offensive Dodger": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Fighting Spirit": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Meditation": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Combo Master": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Special Boost": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Rude Awakener": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Poison Exploit": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Paralysis Exploit": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Buildup Boost": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Hunter's Unity": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Nergigante Avidity": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Artillery": {
+    "category": "Attack",
+    "behavior": "weapon-specific"
+  },
+  "Morph Boost": {
+    "category": "Attack",
+    "behavior": "weapon-specific"
+  },
+  "Morph Attack Boost": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Final Shot": {
+    "category": "Attack",
+    "behavior": "weapon-specific"
+  },
+  "Normal/Element Ammo Boost": {
+    "category": "Attack",
+    "behavior": "weapon-specific"
+  },
+  "Slicing Ammo Boost": {
+    "category": "Attack",
+    "behavior": "weapon-specific"
+  },
+  "Blunt Force": {
+    "category": "Attack",
+    "behavior": "weapon-specific"
+  },
+  "Headstrong": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Dauntless": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Critical Range Boost": {
+    "category": "Attack",
+    "behavior": "weapon-specific"
+  },
+  "Stunning Impact": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Reflection": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Retaliation": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Critical Eye": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Weakness Exploit": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Bleeding Edge": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Critical Boost": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Critical Ferocity": {
+    "category": "Attack",
+    "behavior": "weapon-specific"
+  },
+  "Latent Power": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Partbreaker": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Special Partbreaker": {
+    "category": "Attack",
+    "behavior": "conditional"
+  },
+  "Tail Partbreaker": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Slugger": {
+    "category": "Attack",
+    "behavior": "always-on"
+  },
+  "Fire Attack": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Water Attack": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Thunder Attack": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Ice Attack": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Dragon Attack": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Advanced Water Attack": {
+    "category": "Element",
+    "behavior": "conditional"
+  },
+  "Advanced Thunder Attack": {
+    "category": "Element",
+    "behavior": "conditional"
+  },
+  "Advanced Ice Attack": {
+    "category": "Element",
+    "behavior": "conditional"
+  },
+  "Advanced Dragon Attack": {
+    "category": "Element",
+    "behavior": "conditional"
+  },
+  "Vital Fire": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Vital Water": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Vital Thunder": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Vital Ice": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Vital Dragon": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Charge Master": {
+    "category": "Element",
+    "behavior": "weapon-specific"
+  },
+  "Critical Element": {
+    "category": "Element",
+    "behavior": "conditional"
+  },
+  "Kushala Frostwind": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Kirin Flashstorm": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Namielle Electrowave": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Malzeno Crimsonblood": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Velkhana Aegis": {
+    "category": "Element",
+    "behavior": "conditional"
+  },
+  "Poison Attack": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Paralysis Attack": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Sleep Attack": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Blast Attack": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Status Sneak Attack": {
+    "category": "Element",
+    "behavior": "conditional"
+  },
+  "Ailment Opportunist": {
+    "category": "Element",
+    "behavior": "conditional"
+  },
+  "Teostra Blastpowder": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Chameleos Venomist": {
+    "category": "Element",
+    "behavior": "always-on"
+  },
+  "Elemental Release": {
+    "category": "Element",
+    "behavior": "conditional"
+  },
+  "Focus": {
+    "category": "Action",
+    "behavior": "weapon-specific"
+  },
+  "Quick Work": {
+    "category": "Action",
+    "behavior": "weapon-specific"
+  },
+  "Reload Speed": {
+    "category": "Action",
+    "behavior": "weapon-specific"
+  },
+  "Recoil Down": {
+    "category": "Action",
+    "behavior": "weapon-specific"
+  },
+  "Firm Foothold": {
+    "category": "Action",
+    "behavior": "conditional"
+  },
+  "Evade Extender": {
+    "category": "Action",
+    "behavior": "always-on"
+  },
+  "Artful Dodger": {
+    "category": "Action",
+    "behavior": "conditional"
+  },
+  "Perfectionist": {
+    "category": "Action",
+    "behavior": "conditional"
+  },
+  "Bubbly Dance": {
+    "category": "Action",
+    "behavior": "conditional"
+  },
+  "Power Prolonger": {
+    "category": "Action",
+    "behavior": "weapon-specific"
+  },
+  "Defensive Loading": {
+    "category": "Action",
+    "behavior": "weapon-specific"
+  },
+  "Evading Reload": {
+    "category": "Action",
+    "behavior": "weapon-specific"
+  },
+  "Ballistics": {
+    "category": "Action",
+    "behavior": "weapon-specific"
+  },
+  "Spare Shot": {
+    "category": "Action",
+    "behavior": "weapon-specific"
+  },
+  "Concentration": {
+    "category": "Action",
+    "behavior": "always-on"
+  },
+  "Evasive Concentration": {
+    "category": "Action",
+    "behavior": "conditional"
+  },
+  "Guard Concentration": {
+    "category": "Action",
+    "behavior": "conditional"
+  },
+  "Parry Concentration": {
+    "category": "Action",
+    "behavior": "conditional"
+  },
+  "Lock On": {
+    "category": "Action",
+    "behavior": "conditional"
+  },
+  "Defense Boost": {
+    "category": "Defense/Resistance",
+    "behavior": "always-on"
+  },
+  "Last Stand": {
+    "category": "Defense/Resistance",
+    "behavior": "conditional"
+  },
+  "Shared Shield": {
+    "category": "Defense/Resistance",
+    "behavior": "conditional"
+  },
+  "Health Boost": {
+    "category": "Defense/Resistance",
+    "behavior": "always-on"
+  },
+  "Divine Blessing": {
+    "category": "Defense/Resistance",
+    "behavior": "conditional"
+  },
+  "Litheness": {
+    "category": "Defense/Resistance",
+    "behavior": "always-on"
+  },
+  "Guts": {
+    "category": "Defense/Resistance",
+    "behavior": "conditional"
+  },
+  "Guard": {
+    "category": "Defense/Resistance",
+    "behavior": "conditional"
+  },
+  "Guard Up": {
+    "category": "Defense/Resistance",
+    "behavior": "always-on"
+  },
+  "Special Insurance": {
+    "category": "Defense/Resistance",
+    "behavior": "conditional"
+  },
+  "Earplugs": {
+    "category": "Defense/Resistance",
+    "behavior": "conditional"
+  },
+  "Tremor Resistance": {
+    "category": "Defense/Resistance",
+    "behavior": "always-on"
+  },
+  "Windproof": {
+    "category": "Defense/Resistance",
+    "behavior": "always-on"
+  },
+  "Fire Resistance": {
+    "category": "Defense/Resistance",
+    "behavior": "always-on"
+  },
+  "Water Resistance": {
+    "category": "Defense/Resistance",
+    "behavior": "always-on"
+  },
+  "Thunder Resistance": {
+    "category": "Defense/Resistance",
+    "behavior": "always-on"
+  },
+  "Ice Resistance": {
+    "category": "Defense/Resistance",
+    "behavior": "always-on"
+  },
+  "Dragon Resistance": {
+    "category": "Defense/Resistance",
+    "behavior": "always-on"
+  },
+  "Poison Resistance": {
+    "category": "Defense/Resistance",
+    "behavior": "conditional"
+  },
+  "Paralysis Resistance": {
+    "category": "Defense/Resistance",
+    "behavior": "conditional"
+  },
+  "Sleep Resistance": {
+    "category": "Defense/Resistance",
+    "behavior": "conditional"
+  },
+  "Bleeding Resistance": {
+    "category": "Defense/Resistance",
+    "behavior": "conditional"
+  },
+  "Blast Resistance": {
+    "category": "Defense/Resistance",
+    "behavior": "conditional"
+  }
+};
+
+export const OFFICIAL_SKILL_DESCRIPTIONS_GENERATED_AT = "2026-08-09T14:25:41.536Z";

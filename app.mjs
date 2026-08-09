@@ -4,7 +4,7 @@ import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmelt
 import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs?v=2026-08-08-loadout-element-lock";
 import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs?v=2026-08-08-loadout-element-lock";
 import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-08-loadout-element-lock";
-import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions } from "./skill-utils.mjs?v=2026-08-09-skill-bulk-sync";
+import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions, skillMetadata } from "./skill-utils.mjs?v=2026-08-09-skill-dialog-meta";
 import { buildUpgradePlan } from "./upgrade-planner.mjs?v=2026-08-08-loadout-element-lock";
 import { applyWeaponStyleProfile, defaultWeaponStyleProfile, hasWeaponStyleBonus, isRiftborneMaterial, monsterHasRiftborne, normalizeWeaponStyleProfile, weaponSupportsStyle } from "./weapon-style.mjs?v=2026-08-08-loadout-element-lock";
 import {
@@ -1808,6 +1808,7 @@ function ensureSkillDialog() {
         <p class="eyebrow">Skill details</p>
         <h2 id="skill-dialog-title"></h2>
         <p id="skill-dialog-level" class="skill-dialog-level"></p>
+        <div id="skill-dialog-meta" class="skill-dialog-meta"></div>
         <div id="skill-dialog-description" class="skill-dialog-description"></div>
       </div>
     </div>
@@ -1819,8 +1820,13 @@ function openSkillDialog(name, level, fallbackEffect) {
   if (!dialog) return;
   const canonicalName = canonicalSkillName(name);
   const descriptions = skillDescriptions(canonicalName, fallbackEffect, level);
+  const metadata = skillMetadata(canonicalName);
   dialog.querySelector("#skill-dialog-title").textContent = canonicalName;
   dialog.querySelector("#skill-dialog-level").textContent = `Current level shown: Lv.${level || 1}`;
+  dialog.querySelector("#skill-dialog-meta").innerHTML = `
+    <span class="skill-meta-chip">${metadata.category}</span>
+    <span class="skill-meta-chip">${metadata.behavior}</span>
+  `;
   dialog.querySelector("#skill-dialog-description").innerHTML = `<ul class="skill-level-list">${descriptions.map((description, index) => `<li class="${index + 1 === (level || 1) ? "is-current" : ""}"><span>Lv.${index + 1}</span><p>${description.replace(/^Lv\.\d+:\s*/, "")}</p></li>`).join("")}</ul>`;
   dialog.hidden = false;
 }

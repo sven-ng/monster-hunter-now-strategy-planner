@@ -1,5 +1,5 @@
 import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-09-skill-bulk-sync";
-import { OFFICIAL_SKILL_DESCRIPTIONS, OFFICIAL_SKILL_NAME_ALIASES } from "./data/official-skill-descriptions.mjs?v=2026-08-09-skill-bulk-sync";
+import { OFFICIAL_SKILL_DESCRIPTIONS, OFFICIAL_SKILL_METADATA, OFFICIAL_SKILL_NAME_ALIASES } from "./data/official-skill-descriptions.mjs?v=2026-08-09-skill-bulk-sync";
 
 const SKILL_NAME_ALIASES = OFFICIAL_SKILL_NAME_ALIASES;
 
@@ -50,6 +50,14 @@ export function skillDescriptions(name, fallbackEffect = "", currentLevel = 1) {
     return descriptions;
   }
   return [generic];
+}
+
+export function skillMetadata(name) {
+  const canonicalName = canonicalSkillName(name);
+  return OFFICIAL_SKILL_METADATA[canonicalName] ?? {
+    category: "Unknown",
+    behavior: "conditional",
+  };
 }
 
 const PUBLISHED_SKILL_LEVELS = buildPublishedSkillLevels();

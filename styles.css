@@ -302,6 +302,8 @@ button.monster-focus-card:hover, button.monster-focus-card:focus-visible { borde
 .skill-dialog-close { position: absolute; top: 14px; right: 14px; border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; color: var(--muted); background: rgba(2, 15, 19, 0.56); cursor: pointer; font-size: 0.68rem; font-weight: 700; }
 .skill-dialog-close:hover { border-color: var(--aqua); color: var(--aqua); }
 .skill-dialog-level { margin: 12px 0 0; color: var(--aqua); font-size: 0.8rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.skill-dialog-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
+.skill-meta-chip { display: inline-flex; align-items: center; border: 1px solid rgba(118, 228, 209, 0.22); border-radius: 999px; padding: 6px 10px; color: #d7ebe9; background: rgba(118, 228, 209, 0.08); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
 .skill-dialog-description { margin: 12px 0 0; color: #d7ebe9; font-size: 0.92rem; line-height: 1.65; }
 .skill-level-list { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
 .skill-level-list li { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; align-items: start; padding: 10px 12px; border: 1px solid rgba(118, 228, 209, 0.14); border-radius: 12px; background: rgba(118, 228, 209, 0.04); }

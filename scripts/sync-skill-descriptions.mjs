@@ -69,13 +69,79 @@ function parseSkillLinks(html) {
   return matches.map(([, slug, name]) => ({ slug, name: decodeEntities(name) }));
 }
 
+function parseSkillCategories(html) {
+  const categories = {};
+  const sections = [...html.matchAll(/<div class="_title_[^"]+">([^<]+)<\/div>[\s\S]*?<div class="_sectionContent_[^"]+">([\s\S]*?)<\/div>/g)];
+  for (const [, rawCategory, content] of sections) {
+    const category = cleanText(rawCategory);
+    for (const match of content.matchAll(/<a href="\/en\/skills\/([^"]+)"[^>]*><mh-sidebar-item[^>]*data-content="([^"]+)"/g)) {
+      const [, slug, name] = match;
+      categories[decodeEntities(name)] = { slug, category };
+    }
+  }
+  return categories;
+}
+
 function parseDescriptions(html) {
   const rows = [...html.matchAll(/<tr>\s*<td[^>]*><b>(\d+)<\/b><\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/g)];
   return rows.map(([, level, description]) => `Lv.${level}: ${cleanText(description)}`);
 }
 
-function toModuleText({ aliases, descriptions, generatedAt }) {
-  return `export const OFFICIAL_SKILL_NAME_ALIASES = ${JSON.stringify(aliases, null, 2)};\n\nexport const OFFICIAL_SKILL_DESCRIPTIONS = ${JSON.stringify(descriptions, null, 2)};\n\nexport const OFFICIAL_SKILL_DESCRIPTIONS_GENERATED_AT = ${JSON.stringify(generatedAt)};\n`;
+function inferBehavior(name, descriptions) {
+  const text = `${name} ${descriptions.join(" ")}`.toLowerCase();
+  const weaponSpecificPhrases = [
+    "ammo",
+    "arrows",
+    "bowgun",
+    "gunlance",
+    "charge blade",
+    "switch axe",
+    "dual blades",
+    "long sword",
+    "hunting horn",
+    "insect glaive",
+    "when hunting with a close-range weapon",
+    "weapon's affinity",
+    "charged attacks",
+    "optimal distance",
+    "reload",
+    "recoil",
+    "phial",
+    "sheathing",
+    "transforming your weapon",
+  ];
+  if (weaponSpecificPhrases.some((phrase) => text.includes(phrase))) {
+    return "weapon-specific";
+  }
+
+  const conditionalPhrases = [
+    "when ",
+    "after ",
+    "while ",
+    "if ",
+    "upon ",
+    "during ",
+    "at the start of a hunt",
+    "up to ",
+    "chance of",
+    "automatically",
+    "group hunt",
+    "perfect evade",
+    "guarding",
+    "special gauge becomes full",
+    "monster roars",
+    "health drops",
+    "recovering from",
+  ];
+  if (conditionalPhrases.some((phrase) => text.includes(phrase))) {
+    return "conditional";
+  }
+
+  return "always-on";
+}
+
+function toModuleText({ aliases, descriptions, metadata, generatedAt }) {
+  return `export const OFFICIAL_SKILL_NAME_ALIASES = ${JSON.stringify(aliases, null, 2)};\n\nexport const OFFICIAL_SKILL_DESCRIPTIONS = ${JSON.stringify(descriptions, null, 2)};\n\nexport const OFFICIAL_SKILL_METADATA = ${JSON.stringify(metadata, null, 2)};\n\nexport const OFFICIAL_SKILL_DESCRIPTIONS_GENERATED_AT = ${JSON.stringify(generatedAt)};\n`;
 }
 
 const sidebarHtml = await fetchHtml(DETAIL_PAGE_URL);
@@ -83,8 +149,10 @@ const skillLinks = parseSkillLinks(sidebarHtml);
 if (!skillLinks.length) {
   throw new Error("Could not extract official skill links from the sidebar.");
 }
+const sidebarCategories = parseSkillCategories(sidebarHtml);
 
 const descriptions = {};
+const metadata = {};
 for (const { slug, name } of skillLinks) {
   const html = slug === "offensive_guard"
     ? sidebarHtml
@@ -92,6 +160,10 @@ for (const { slug, name } of skillLinks) {
   const levels = parseDescriptions(html);
   if (levels.length) {
     descriptions[name] = levels;
+    metadata[name] = {
+      category: sidebarCategories[name]?.category ?? "Unknown",
+      behavior: inferBehavior(name, levels),
+    };
   }
 }
 
@@ -112,6 +184,7 @@ if (unresolved.length) {
 writeFileSync(OUTPUT_FILE, toModuleText({
   aliases,
   descriptions,
+  metadata,
   generatedAt: new Date().toISOString(),
 }));
 
