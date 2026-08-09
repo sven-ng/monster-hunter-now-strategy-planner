@@ -36,6 +36,28 @@ const ATTACK_EFFICACY_MULTIPLIERS = [0, 0.1, 0.15, 0.25];
 const CRITICAL_EYE_BONUSES = [0, 10, 15, 20, 30, 40];
 const WEAKNESS_EXPLOIT_BONUSES = [0, 20, 25, 30, 40, 50];
 const CRITICAL_MULTIPLIERS = [1.25, 1.3, 1.35, 1.4, 1.45, 1.5];
+const SKILL_LEVEL_CAPS = {
+  "Attack Boost": 5,
+  "Advanced Attack Boost": 2,
+  "Attack Efficacy": 3,
+  "Critical Eye": 5,
+  "Weakness Exploit": 5,
+  "Critical Boost": 5,
+  "Critical Strength": 1,
+  "Raw Power": 5,
+  "Fire Attack": 5,
+  "Water Attack": 5,
+  "Thunder Attack": 5,
+  "Ice Attack": 5,
+  "Dragon Attack": 5,
+  "Poison Attack": 5,
+  "Paralysis Attack": 5,
+  "Advanced Fire Attack": 2,
+  "Advanced Water Attack": 2,
+  "Advanced Thunder Attack": 2,
+  "Advanced Ice Attack": 2,
+  "Advanced Dragon Attack": 2,
+};
 const ELEMENT_PERCENT_SKILL_RULES = {
   "Kushala Frostwind": { elementType: "Ice", multipliers: [0, 0.1, 0.15, 0.25] },
   "Kirin Flashstorm": { elementType: "Thunder", multipliers: [0, 0.1, 0.15, 0.25] },
@@ -43,6 +65,10 @@ const ELEMENT_PERCENT_SKILL_RULES = {
   "Malzeno Crimsonblood": { elementType: "Dragon", multipliers: [0, 0.1, 0.15, 0.25] },
   "Velkhana Aegis": { elementType: "Ice", multipliers: [0, 0.1, 0.15, 0.2] },
 };
+
+for (const [name, rule] of Object.entries(ELEMENT_PERCENT_SKILL_RULES)) {
+  SKILL_LEVEL_CAPS[name] = rule.multipliers.length - 1;
+}
 
 export function createIndexes(data = GAME_DATA) {
   const materialById = Object.fromEntries(data.materials.map((item) => [item.id, item]));
@@ -616,7 +642,10 @@ export function getMaterialUsage(materialId, data = GAME_DATA) {
 }
 
 function skillScore(skills) {
-  return (skills ?? []).reduce((total, skill) => total + (ATTACK_SKILL_SCORES[skill.name] ?? skill.level * 5), 0);
+  return (skills ?? []).reduce((total, skill) => {
+    const effectiveLevel = effectiveSkillLevel(skill.name, skill.level);
+    return total + (ATTACK_SKILL_SCORES[skill.name] ?? effectiveLevel * 5);
+  }, 0);
 }
 
 function loadoutFocusLabel(focus) {
@@ -669,13 +698,14 @@ function rankLoadoutArmor(armor, baselineBuild, focus, ownedGearIds) {
 }
 
 function armorOffensePotential(piece) {
-  return piece.defense * 0.25 + (piece.skills ?? []).reduce((total, skill) => {
-    if (skill.name === "Attack Boost") return total + bonusAt(ATTACK_BOOST_BONUSES, skill.level);
-    if (skill.name === "Attack Efficacy") return total + bonusAt(ATTACK_EFFICACY_MULTIPLIERS, skill.level) * 900;
-    if (ELEMENT_SKILL_NAMES.has(skill.name)) return total + bonusAt(ELEMENT_ATTACK_BONUSES, skill.level) * 0.5;
-    if (skill.name === "Critical Eye") return total + bonusAt(CRITICAL_EYE_BONUSES, skill.level) * 4;
-    if (skill.name === "Weakness Exploit") return total + bonusAt(WEAKNESS_EXPLOIT_BONUSES, skill.level) * 4;
-    if (skill.name === "Critical Boost") return total + skill.level * 55;
+  return piece.defense * 0.08 + (piece.skills ?? []).reduce((total, skill) => {
+    const level = effectiveSkillLevel(skill.name, skill.level);
+    if (skill.name === "Attack Boost") return total + bonusAt(ATTACK_BOOST_BONUSES, level);
+    if (skill.name === "Attack Efficacy") return total + bonusAt(ATTACK_EFFICACY_MULTIPLIERS, level) * 900;
+    if (ELEMENT_SKILL_NAMES.has(skill.name)) return total + bonusAt(ELEMENT_ATTACK_BONUSES, level) * 0.5;
+    if (skill.name === "Critical Eye") return total + bonusAt(CRITICAL_EYE_BONUSES, level) * 4;
+    if (skill.name === "Weakness Exploit") return total + bonusAt(WEAKNESS_EXPLOIT_BONUSES, level) * 4;
+    if (skill.name === "Critical Boost") return total + level * 55;
     return total + skillScore([skill]);
   }, 0);
 }
@@ -694,16 +724,17 @@ function weaponFocusPotential(weapon, damage, baselineBuild, focus) {
 
 function armorFocusPotential(piece, baselineBuild, focus) {
   const preferredElement = preferredLoadoutElement(baselineBuild, null, focus);
-  return piece.defense * 0.22 + (piece.skills ?? []).reduce((total, skill) => {
-    if (skill.name === "Attack Boost") return total + (focus === "raw" ? 120 : 90) * skill.level;
-    if (skill.name === "Advanced Attack Boost") return total + (focus === "raw" ? 150 : 110) * skill.level;
-    if (skill.name === "Attack Efficacy") return total + (focus === "raw" ? 180 : 130) * skill.level;
-    if (skill.name === "Critical Eye") return total + 78 * skill.level;
-    if (skill.name === "Weakness Exploit") return total + 88 * skill.level;
-    if (skill.name === "Critical Boost") return total + 82 * skill.level;
-    if (preferredElement && skill.name === preferredElement) return total + (focus === "element" ? 170 : 90) * skill.level;
+  return piece.defense * 0.06 + (piece.skills ?? []).reduce((total, skill) => {
+    const level = effectiveSkillLevel(skill.name, skill.level);
+    if (skill.name === "Attack Boost") return total + (focus === "raw" ? 120 : 90) * level;
+    if (skill.name === "Advanced Attack Boost") return total + (focus === "raw" ? 150 : 110) * level;
+    if (skill.name === "Attack Efficacy") return total + (focus === "raw" ? 180 : 130) * level;
+    if (skill.name === "Critical Eye") return total + 78 * level;
+    if (skill.name === "Weakness Exploit") return total + 88 * level;
+    if (skill.name === "Critical Boost") return total + 82 * level;
+    if (preferredElement && skill.name === preferredElement) return total + (focus === "element" ? 170 : 90) * level;
     if (preferredElement && skill.name === `Advanced ${preferredElement.replace(" Attack", "")} Attack`) {
-      return total + (focus === "element" ? 210 : 120) * skill.level;
+      return total + (focus === "element" ? 210 : 120) * level;
     }
     return total + skillScore([skill]) * (focus === "skills" ? 1.45 : 1);
   }, 0);
@@ -723,29 +754,56 @@ function scoreLoadoutFocusBuild({ weapon, armor, damage, summary, focus, baselin
   const aggregatedSkills = summary.aggregatedSkills ?? aggregateSkills([weapon, ...armor]);
   const skillTotal = aggregatedSkills.reduce((total, skill) =>
     total + focusedSkillWeight(skill.name, skill.level, focus, preferredLoadoutElement(baselineBuild, weapon, focus), assumeWeakPoint), 0);
+  const wastedSkillPenalty = aggregatedSkills.reduce((total, skill) =>
+    total + overflowSkillPenalty(skill.name, skill.level, focus, preferredLoadoutElement(baselineBuild, weapon, focus), assumeWeakPoint), 0);
   if (focus === "element") {
     const preferredElement = preferredLoadoutElement(baselineBuild, weapon, focus);
     const sameElementBonus = preferredElement && weapon.element?.type === preferredElement.replace(" Attack", "") ? 320 : 0;
-    return damage.potentialElement * 3.2 + damage.rawAttack * 0.55 + skillTotal + sameElementBonus + damage.defense * 0.18;
+    return damage.potentialElement * 3.2 + damage.rawAttack * 0.55 + skillTotal + sameElementBonus + damage.defense * 0.04 - wastedSkillPenalty;
   }
   if (focus === "skills") {
-    return skillTotal * 14 + damage.rawAttack * 0.75 + damage.potentialElement * 0.75 + damage.defense * 0.2;
+    return skillTotal * 14 + damage.rawAttack * 0.75 + damage.potentialElement * 0.75 + damage.defense * 0.05 - wastedSkillPenalty;
   }
-  return damage.rawAttack * 2.6 + damage.expectedRaw * 1.2 + damage.potentialElement * 0.3 + skillTotal * 6 + damage.defense * 0.18;
+  return damage.rawAttack * 2.6 + damage.expectedRaw * 1.35 + damage.potentialElement * 0.3 + skillTotal * 6 + damage.defense * 0.04 - wastedSkillPenalty;
 }
 
 function focusedSkillWeight(name, level, focus, preferredElement, assumeWeakPoint) {
-  if (name === "Attack Boost") return level * (focus === "raw" ? 28 : 18);
-  if (name === "Advanced Attack Boost") return level * (focus === "raw" ? 38 : 24);
-  if (name === "Attack Efficacy") return level * (focus === "raw" ? 44 : 30);
-  if (name === "Critical Eye") return level * 18;
-  if (name === "Weakness Exploit") return level * (assumeWeakPoint ? 22 : 12);
-  if (name === "Critical Boost") return level * 21;
-  if (name === preferredElement) return level * (focus === "element" ? 36 : 16);
+  const effectiveLevel = effectiveSkillLevel(name, level);
+  if (name === "Attack Boost") return effectiveLevel * (focus === "raw" ? 28 : 18);
+  if (name === "Advanced Attack Boost") return effectiveLevel * (focus === "raw" ? 38 : 24);
+  if (name === "Attack Efficacy") return effectiveLevel * (focus === "raw" ? 44 : 30);
+  if (name === "Critical Eye") return effectiveLevel * 18;
+  if (name === "Weakness Exploit") return effectiveLevel * (assumeWeakPoint ? 22 : 12);
+  if (name === "Critical Boost") return effectiveLevel * 21;
+  if (name === preferredElement) return effectiveLevel * (focus === "element" ? 36 : 16);
   if (preferredElement && name === `Advanced ${preferredElement.replace(" Attack", "")} Attack`) {
-    return level * (focus === "element" ? 44 : 20);
+    return effectiveLevel * (focus === "element" ? 44 : 20);
   }
-  return (ATTACK_SKILL_SCORES[name] ?? 4) * level;
+  return (ATTACK_SKILL_SCORES[name] ?? 4) * effectiveLevel;
+}
+
+function overflowSkillPenalty(name, level, focus, preferredElement, assumeWeakPoint) {
+  const overflowLevel = overflowSkillLevels(name, level);
+  if (!overflowLevel) {
+    return 0;
+  }
+  const effectiveWeight = focusedSkillWeight(name, level, focus, preferredElement, assumeWeakPoint);
+  const effectiveLevel = effectiveSkillLevel(name, level);
+  const perLevelWeight = effectiveLevel > 0
+    ? effectiveWeight / effectiveLevel
+    : (ATTACK_SKILL_SCORES[name] ?? 6);
+  return overflowLevel * perLevelWeight * 1.5;
+}
+
+function effectiveSkillLevel(name, level) {
+  const numericLevel = Math.max(0, Number(level) || 0);
+  const cap = SKILL_LEVEL_CAPS[name];
+  return cap ? Math.min(numericLevel, cap) : numericLevel;
+}
+
+function overflowSkillLevels(name, level) {
+  const numericLevel = Math.max(0, Number(level) || 0);
+  return Math.max(0, numericLevel - effectiveSkillLevel(name, numericLevel));
 }
 
 function compareBuildAgainstBaseline(damage, baselineBuild, assumeWeakPoint) {

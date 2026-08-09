@@ -177,6 +177,62 @@ test("current loadout can be benchmarked with the same focus-score model as sugg
   assert.deepEqual(benchmark.aggregatedSkills.map((skill) => skill.name), ["Attack Boost", "Fire Attack", "Critical Eye"]);
 });
 
+test("raw focus penalizes overcapped attack skills and does not let defense dominate the rank", () => {
+  const optimizedBuild = {
+    weapon: {
+      id: "raw-optimized",
+      name: "Optimized Blade",
+      type: "Great Sword",
+      grade: 10,
+      level: 5,
+      attack: 1800,
+      affinity: 5,
+      element: { type: "Ice", value: 825 },
+      skills: [],
+      styleProfile: null,
+    },
+    armor: [
+      { id: "opt-head", part: "Head", defense: 95, skills: [{ name: "Attack Boost", level: 5 }] },
+      { id: "opt-chest", part: "Chest", defense: 95, skills: [{ name: "Critical Eye", level: 2 }] },
+      { id: "opt-arms", part: "Arms", defense: 95, skills: [{ name: "Attack Efficacy", level: 1 }] },
+      { id: "opt-waist", part: "Waist", defense: 95, skills: [] },
+      { id: "opt-legs", part: "Legs", defense: 95, skills: [] },
+    ],
+  };
+  const wastefulBuild = {
+    weapon: {
+      ...optimizedBuild.weapon,
+      id: "raw-wasteful",
+      name: "Wasteful Blade",
+      affinity: 0,
+    },
+    armor: [
+      { id: "waste-head", part: "Head", defense: 105, skills: [{ name: "Attack Boost", level: 5 }] },
+      { id: "waste-chest", part: "Chest", defense: 105, skills: [{ name: "Attack Boost", level: 4 }] },
+      { id: "waste-arms", part: "Arms", defense: 105, skills: [{ name: "Attack Efficacy", level: 1 }] },
+      { id: "waste-waist", part: "Waist", defense: 105, skills: [] },
+      { id: "waste-legs", part: "Legs", defense: 105, skills: [] },
+    ],
+  };
+
+  const optimized = evaluateLoadoutFocusBuild(optimizedBuild, {
+    focus: "raw",
+    baselineBuild: optimizedBuild,
+    assumeWeakPoint: false,
+  });
+  const wasteful = evaluateLoadoutFocusBuild(wastefulBuild, {
+    focus: "raw",
+    baselineBuild: optimizedBuild,
+    assumeWeakPoint: false,
+  });
+
+  assert.equal(optimized.damage.rawAttack, wasteful.damage.rawAttack);
+  assert.equal(optimized.damage.potentialElement, wasteful.damage.potentialElement);
+  assert.ok(optimized.damage.affinity > wasteful.damage.affinity);
+  assert.ok(wasteful.damage.defense > optimized.damage.defense);
+  assert.ok(optimized.focusScore > wasteful.focusScore);
+});
+
 test("monster series links resolve to its official gear", () => {
   const usage = getMonsterMaterialUsage("greatjagras", GAME_DATA);
   assert.ok(usage.length > 0);

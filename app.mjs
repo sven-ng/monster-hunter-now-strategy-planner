@@ -4,7 +4,7 @@ import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmelt
 import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs?v=2026-08-08-loadout-element-lock";
 import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs?v=2026-08-08-loadout-element-lock";
 import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-08-loadout-element-lock";
-import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions, skillMetadata } from "./skill-utils.mjs?v=2026-08-09-current-focus-benchmark";
+import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions, skillMetadata } from "./skill-utils.mjs?v=2026-08-09-focus-score-balance";
 import { buildUpgradePlan } from "./upgrade-planner.mjs?v=2026-08-08-loadout-element-lock";
 import { applyWeaponStyleProfile, defaultWeaponStyleProfile, hasWeaponStyleBonus, isRiftborneMaterial, monsterHasRiftborne, normalizeWeaponStyleProfile, weaponSupportsStyle } from "./weapon-style.mjs?v=2026-08-08-loadout-element-lock";
 import {
@@ -19,7 +19,7 @@ import {
   recommendBuilds,
   evaluateLoadoutFocusBuild,
   recommendLoadoutFocusBuilds,
-} from "./planner.mjs?v=2026-08-09-current-focus-benchmark";
+} from "./planner.mjs?v=2026-08-09-focus-score-balance";
 
 const OWNED_STORAGE_KEY = "mhnow-strategy-planner-owned-gear";
 const GEAR_PROGRESS_STORAGE_KEY = "mhnow-strategy-planner-gear-progress";
@@ -1459,7 +1459,7 @@ function loadoutSuggestionsMarkup(activeLoadout, baselineBuild, currentFocusBuil
         <div>
           <p class="eyebrow">Best loadout suggestion</p>
           <h2>Rebuild ${activeLoadout.name} around one focus</h2>
-          <p class="section-copy">Your current build now uses the same focus-score model as the suggestions, so you can benchmark it directly before swapping gear.</p>
+          <p class="section-copy">Your current build now uses the same focus-score model as the suggestions. The score caps skills at their effective max and gives defense only a light weight.</p>
         </div>
         <label class="inline-select">Suggestion focus<select id="loadout-suggestion-focus"><option value="raw">Raw attack</option><option value="element">Element attack</option><option value="skills">Skills</option></select></label>
       </div>
