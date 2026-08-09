@@ -33,10 +33,16 @@ const ATTACK_BOOST_BONUSES = [0, 50, 100, 150, 200, 300];
 const ADVANCED_ATTACK_BOOST_BONUSES = [0, 150, 350];
 const ADVANCED_ELEMENT_ATTACK_BONUSES = [0, 200, 400];
 const ATTACK_EFFICACY_MULTIPLIERS = [0, 0.1, 0.15, 0.25];
-const VELKHANA_AEGIS_ELEMENT_MULTIPLIERS = [0, 0.1, 0.15, 0.2];
 const CRITICAL_EYE_BONUSES = [0, 10, 15, 20, 30, 40];
 const WEAKNESS_EXPLOIT_BONUSES = [0, 20, 25, 30, 40, 50];
 const CRITICAL_MULTIPLIERS = [1.25, 1.3, 1.35, 1.4, 1.45, 1.5];
+const ELEMENT_PERCENT_SKILL_RULES = {
+  "Kushala Frostwind": { elementType: "Ice", multipliers: [0, 0.1, 0.15, 0.25] },
+  "Kirin Flashstorm": { elementType: "Thunder", multipliers: [0, 0.1, 0.15, 0.25] },
+  "Namielle Electrowave": { elementType: "Water", multipliers: [0, 0.1, 0.15, 0.25] },
+  "Malzeno Crimsonblood": { elementType: "Dragon", multipliers: [0, 0.1, 0.15, 0.25] },
+  "Velkhana Aegis": { elementType: "Ice", multipliers: [0, 0.1, 0.15, 0.2] },
+};
 
 export function createIndexes(data = GAME_DATA) {
   const materialById = Object.fromEntries(data.materials.map((item) => [item.id, item]));
@@ -155,11 +161,8 @@ export function calculateWeaponPower(weapon, aggregatedSkills, targetMonster) {
         elementValue += bonusAt(ADVANCED_ELEMENT_ATTACK_BONUSES, skillMap.get(advancedSkillName) ?? 0);
       }
     }
-    if (weapon.element.type === "Ice") {
-      const velkhanaAegisLevel = skillMap.get("Velkhana Aegis") ?? 0;
-      const velkhanaAegisMultiplier = bonusAt(VELKHANA_AEGIS_ELEMENT_MULTIPLIERS, velkhanaAegisLevel);
-      elementValue = Math.round(elementValue * (1 + velkhanaAegisMultiplier));
-    }
+    const percentElementBonus = activeElementPercentBonuses(skillMap, weapon.element.type);
+    elementValue = Math.round(elementValue * (1 + percentElementBonus.totalMultiplier));
   } else if (weapon.element && (weapon.element.type === "Poison" || weapon.element.type === "Paralysis")) {
     weaknessBonus += targetWeakness.includes(weapon.element.type) ? 70 : 20;
   }
@@ -206,18 +209,18 @@ export function calculateFinalLoadoutStats(build, { monster = null, assumeWeakPo
   const advancedElementalSkillLevel = weaponElement && elementalSkillLevel >= 5
     ? skillMap.get(`Advanced ${weaponElement.type} Attack`) ?? 0
     : 0;
-  const velkhanaAegisLevel = weaponElement?.type === "Ice" ? skillMap.get("Velkhana Aegis") ?? 0 : 0;
-  const velkhanaAegisMultiplier = weaponElement?.type === "Ice"
-    ? bonusAt(VELKHANA_AEGIS_ELEMENT_MULTIPLIERS, velkhanaAegisLevel)
-    : 0;
   const elementalSkillBonus = weaponElement && ELEMENT_DAMAGE_TYPES.has(weaponElement.type)
     ? bonusAt(ELEMENT_ATTACK_BONUSES, elementalSkillLevel)
     : 0;
   const advancedElementalSkillBonus = weaponElement && ELEMENT_DAMAGE_TYPES.has(weaponElement.type) && elementalSkillLevel >= 5
     ? bonusAt(ADVANCED_ELEMENT_ATTACK_BONUSES, advancedElementalSkillLevel)
     : 0;
+  const elementPercentBonus = weaponElement && ELEMENT_DAMAGE_TYPES.has(weaponElement.type)
+    ? activeElementPercentBonuses(skillMap, weaponElement.type)
+    : { totalMultiplier: 0, bonuses: [] };
   const potentialElement = weaponElement && ELEMENT_DAMAGE_TYPES.has(weaponElement.type)
-    ? Math.round((weaponElement.value + elementalSkillBonus + advancedElementalSkillBonus) * (1 + velkhanaAegisMultiplier))
+    ? Math.round((weaponElement.value + elementalSkillBonus + advancedElementalSkillBonus)
+      * (1 + elementPercentBonus.totalMultiplier))
     : 0;
   const effectiveElement = matchingElement ? potentialElement : 0;
   const defense = build.armor.reduce((total, piece) => total + piece.defense, 0);
@@ -230,7 +233,7 @@ export function calculateFinalLoadoutStats(build, { monster = null, assumeWeakPo
     "Critical Boost",
     ...(weaponElement && ELEMENT_DAMAGE_TYPES.has(weaponElement.type) ? [`${weaponElement.type} Attack`] : []),
     ...(weaponElement && ELEMENT_DAMAGE_TYPES.has(weaponElement.type) ? [`Advanced ${weaponElement.type} Attack`] : []),
-    ...(weaponElement?.type === "Ice" ? ["Velkhana Aegis"] : []),
+    ...elementPercentBonus.bonuses.map((bonus) => bonus.name),
   ]);
   const styleProfile = normalizeWeaponStyleProfile(build.weapon.styleProfile);
 
@@ -252,8 +255,8 @@ export function calculateFinalLoadoutStats(build, { monster = null, assumeWeakPo
     elementalSkillBonus,
     advancedElementalSkillLevel,
     advancedElementalSkillBonus,
-    velkhanaAegisLevel,
-    velkhanaAegisMultiplier,
+    elementPercentSkillBonuses: elementPercentBonus.bonuses,
+    elementPercentMultiplierTotal: elementPercentBonus.totalMultiplier,
     potentialElement,
     effectiveElement,
     matchingElement,
@@ -267,6 +270,29 @@ export function calculateFinalLoadoutStats(build, { monster = null, assumeWeakPo
 
 function bonusAt(values, level) {
   return values[Math.max(0, Math.min(values.length - 1, Number(level) || 0))] ?? 0;
+}
+
+function activeElementPercentBonuses(skillMap, weaponElementType) {
+  if (!weaponElementType) {
+    return { totalMultiplier: 0, bonuses: [] };
+  }
+
+  const bonuses = Object.entries(ELEMENT_PERCENT_SKILL_RULES).flatMap(([name, rule]) => {
+    if (rule.elementType !== weaponElementType) {
+      return [];
+    }
+    const level = skillMap.get(name) ?? 0;
+    if (level <= 0) {
+      return [];
+    }
+    const multiplier = bonusAt(rule.multipliers, level);
+    return multiplier > 0 ? [{ name, level, multiplier }] : [];
+  });
+
+  return {
+    bonuses,
+    totalMultiplier: bonuses.reduce((total, bonus) => total + bonus.multiplier, 0),
+  };
 }
 
 function expectedAffinityMultiplier(affinity, criticalMultiplier) {

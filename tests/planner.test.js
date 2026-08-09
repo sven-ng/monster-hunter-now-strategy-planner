@@ -609,9 +609,41 @@ test("Velkhana Aegis multiplies final ice element after additive bonuses", () =>
 
   assert.equal(stats.potentialElement, 1540);
   assert.equal(stats.effectiveElement, 1540);
-  assert.equal(stats.velkhanaAegisLevel, 1);
-  assert.equal(stats.velkhanaAegisMultiplier, 0.1);
+  assert.equal(stats.elementPercentMultiplierTotal, 0.1);
+  assert.deepEqual(stats.elementPercentSkillBonuses.map((bonus) => bonus.name), ["Velkhana Aegis"]);
   assert.equal(power.elementScore, 1540);
+});
+
+test("elder hybrid element skills multiply the matching final element stat", () => {
+  const cases = [
+    { skill: "Kushala Frostwind", elementType: "Ice", level: 3, expectedElement: 875, weakness: ["Ice"] },
+    { skill: "Kirin Flashstorm", elementType: "Thunder", level: 2, expectedElement: 805, weakness: ["Thunder"] },
+    { skill: "Namielle Electrowave", elementType: "Water", level: 1, expectedElement: 770, weakness: ["Water"] },
+    { skill: "Malzeno Crimsonblood", elementType: "Dragon", level: 2, expectedElement: 805, weakness: ["Dragon"] },
+  ];
+
+  for (const { skill, elementType, level, expectedElement, weakness } of cases) {
+    const weapon = {
+      attack: 1000,
+      affinity: 0,
+      element: { type: elementType, value: 700 },
+      styleProfile: null,
+    };
+    const build = {
+      weapon,
+      armor: [{
+        defense: 100,
+        skills: [{ name: skill, level }],
+      }],
+    };
+    const stats = calculateFinalLoadoutStats(build, { monster: { weakness } });
+    const power = calculateWeaponPower(weapon, aggregateSkills([weapon, ...build.armor]), { weakness });
+
+    assert.equal(stats.potentialElement, expectedElement);
+    assert.equal(stats.effectiveElement, expectedElement);
+    assert.equal(power.elementScore, expectedElement);
+    assert.deepEqual(stats.elementPercentSkillBonuses.map((bonus) => bonus.name), [skill]);
+  }
 });
 
 test("Offensive Guard and Offensive Dodger show current official skill detail text", () => {
