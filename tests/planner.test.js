@@ -12,6 +12,7 @@ import { canonicalSkillName, skillDescription, skillMetadata } from "../skill-ut
 import {
   aggregateSkills,
   applySuggestedDriftsmeltSkills,
+  calculateWeaponPower,
   classifyBuildVsMonster,
   calculateFinalLoadoutStats,
   getGearAtGrade,
@@ -581,6 +582,36 @@ test("Velkhana Armor is normalized to Velkhana Aegis with current official detai
   assert.equal(canonicalSkillName("Velkhana Armor"), "Velkhana Aegis");
   assert.match(skillDescription("Velkhana Armor", 1), /ice element attack power by 10%/i);
   assert.match(skillDescription("Velkhana Armor", 2), /40% of maximum health/i);
+});
+
+test("Velkhana Aegis multiplies final ice element after additive bonuses", () => {
+  const weapon = {
+    attack: 1000,
+    affinity: 0,
+    element: { type: "Ice", value: 700 },
+    styleProfile: null,
+  };
+  const weakMonster = { weakness: ["Ice"] };
+  const build = {
+    weapon,
+    armor: [{
+      defense: 100,
+      skills: [
+        { name: "Ice Attack", level: 5 },
+        { name: "Advanced Ice Attack", level: 1 },
+        { name: "Velkhana Aegis", level: 1 },
+      ],
+    }],
+  };
+
+  const stats = calculateFinalLoadoutStats(build, { monster: weakMonster });
+  const power = calculateWeaponPower(weapon, aggregateSkills([weapon, ...build.armor]), weakMonster);
+
+  assert.equal(stats.potentialElement, 1540);
+  assert.equal(stats.effectiveElement, 1540);
+  assert.equal(stats.velkhanaAegisLevel, 1);
+  assert.equal(stats.velkhanaAegisMultiplier, 0.1);
+  assert.equal(power.elementScore, 1540);
 });
 
 test("Offensive Guard and Offensive Dodger show current official skill detail text", () => {

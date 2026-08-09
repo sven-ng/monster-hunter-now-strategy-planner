@@ -4,7 +4,7 @@ import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmelt
 import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs?v=2026-08-08-loadout-element-lock";
 import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs?v=2026-08-08-loadout-element-lock";
 import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-08-loadout-element-lock";
-import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions, skillMetadata } from "./skill-utils.mjs?v=2026-08-09-skill-dialog-meta";
+import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions, skillMetadata } from "./skill-utils.mjs?v=2026-08-09-velkhana-aegis-fix";
 import { buildUpgradePlan } from "./upgrade-planner.mjs?v=2026-08-08-loadout-element-lock";
 import { applyWeaponStyleProfile, defaultWeaponStyleProfile, hasWeaponStyleBonus, isRiftborneMaterial, monsterHasRiftborne, normalizeWeaponStyleProfile, weaponSupportsStyle } from "./weapon-style.mjs?v=2026-08-08-loadout-element-lock";
 import {
@@ -18,7 +18,7 @@ import {
   recommendedGradeForStars,
   recommendBuilds,
   recommendLoadoutFocusBuilds,
-} from "./planner.mjs?v=2026-08-08-loadout-element-lock";
+} from "./planner.mjs?v=2026-08-09-velkhana-aegis-fix";
 
 const OWNED_STORAGE_KEY = "mhnow-strategy-planner-owned-gear";
 const GEAR_PROGRESS_STORAGE_KEY = "mhnow-strategy-planner-gear-progress";
@@ -1376,6 +1376,9 @@ function savedLoadoutSummary(loadout, build, counts, finalStats) {
     finalStats.criticalEyeBonus ? `Critical Eye +${finalStats.criticalEyeBonus}%` : null,
     finalStats.weaknessExploitBonus ? `Weakness Exploit +${finalStats.weaknessExploitBonus}%` : null,
     finalStats.advancedElementalSkillBonus && finalStats.matchingElement ? `Advanced ${finalStats.weaponElement.type} Attack +${finalStats.advancedElementalSkillBonus}` : null,
+    finalStats.velkhanaAegisLevel && finalStats.weaponElement?.type === "Ice"
+      ? `Velkhana Aegis +${Math.round(finalStats.velkhanaAegisMultiplier * 100)}% ice element`
+      : null,
   ].filter(Boolean);
   const driftsmeltSkills = build.armor.flatMap((piece) => piece.driftsmeltSkills ?? []);
   const driftsmeltLabel = driftsmeltSkills.length
@@ -1638,6 +1641,9 @@ function buildCard(build, index, { saved = false } = {}) {
     damage.attackEfficacyLevel ? `Attack Efficacy +${Math.round(damage.attackEfficacyMultiplier * 100)}%` : null,
     damage.elementalSkillBonus && damage.matchingElement ? `${damage.weaponElement.type} Attack +${damage.elementalSkillBonus}` : null,
     damage.advancedElementalSkillBonus && damage.matchingElement ? `Advanced ${damage.weaponElement.type} Attack +${damage.advancedElementalSkillBonus}` : null,
+    damage.velkhanaAegisLevel && damage.weaponElement?.type === "Ice"
+      ? `Velkhana Aegis +${Math.round(damage.velkhanaAegisMultiplier * 100)}% ice element`
+      : null,
     damage.criticalEyeBonus ? `Critical Eye +${damage.criticalEyeBonus}%` : null,
     damage.weaknessExploitBonus ? `Weakness Exploit +${damage.weaknessExploitBonus}%` : null,
     damage.criticalMultiplier > 1.25 ? `Critical Boost ${Math.round(damage.criticalMultiplier * 100)}%` : null,
