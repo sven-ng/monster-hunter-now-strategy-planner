@@ -9,7 +9,7 @@ export function createProfileExport(profile, exportedAt = new Date().toISOString
   };
 }
 
-export function parseProfileExport(text) {
+export function parseProfileExportPayload(text) {
   let payload;
   try {
     payload = JSON.parse(text);
@@ -21,5 +21,9 @@ export function parseProfileExport(text) {
     throw new Error("That file is not a compatible Field Kit profile export.");
   }
 
-  return payload.profile;
+  return payload;
+}
+
+export function parseProfileExport(text) {
+  return parseProfileExportPayload(text).profile;
 }

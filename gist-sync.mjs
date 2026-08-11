@@ -1,4 +1,4 @@
-import { parseProfileExport } from "./profile-transfer.mjs?v=2026-08-07-skill-rename-refresh";
+import { parseProfileExportPayload } from "./profile-transfer.mjs?v=2026-08-11-cloud-sync-status";
 
 export const PROFILE_GIST_FILENAME = "mhn-field-kit-profile.json";
 const GITHUB_API_ROOT = "https://api.github.com";
@@ -21,7 +21,11 @@ export function parseProfileFromGist(gist) {
   if (!file?.content) {
     throw new Error(`The selected Gist does not contain ${PROFILE_GIST_FILENAME}.`);
   }
-  return parseProfileExport(file.content);
+  const payload = parseProfileExportPayload(file.content);
+  return {
+    profile: payload.profile,
+    exportedAt: typeof payload.exportedAt === "string" ? payload.exportedAt : "",
+  };
 }
 
 export async function createProfileGist({ token, exportData }) {
@@ -33,6 +37,7 @@ export async function createProfileGist({ token, exportData }) {
   return {
     gistId: response.id,
     htmlUrl: response.html_url,
+    updatedAt: response.updated_at,
   };
 }
 
@@ -47,6 +52,7 @@ export async function updateProfileGist({ token, gistId, exportData }) {
   return {
     gistId: response.id,
     htmlUrl: response.html_url,
+    updatedAt: response.updated_at,
   };
 }
 
@@ -55,8 +61,11 @@ export async function loadProfileGist({ token, gistId }) {
     method: "GET",
     token,
   });
+  const parsed = parseProfileFromGist(gist);
   return {
-    profile: parseProfileFromGist(gist),
+    profile: parsed.profile,
+    exportedAt: parsed.exportedAt,
+    gistUpdatedAt: gist.updated_at,
     htmlUrl: gist.html_url,
   };
 }

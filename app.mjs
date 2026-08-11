@@ -2,8 +2,8 @@ import { GAME_DATA } from "./data/game-data.mjs?v=2026-08-08-loadout-element-loc
 import { driftsmeltSlotCount, driftsmeltSlotUnlockGrades, filterArmor, filterMaterials, filterMonsters, filterWeapons } from "./catalogue-filters.mjs?v=2026-08-08-loadout-element-lock";
 import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmeltSkillPool } from "./driftsmelt.mjs?v=2026-08-08-loadout-element-lock";
 import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs?v=2026-08-08-loadout-element-lock";
-import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs?v=2026-08-08-loadout-element-lock";
-import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-08-loadout-element-lock";
+import { createProfileExport, parseProfileExportPayload } from "./profile-transfer.mjs?v=2026-08-11-cloud-sync-status";
+import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-11-cloud-sync-status";
 import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions, skillMetadata } from "./skill-utils.mjs?v=2026-08-11-ranking-reasons";
 import { buildUpgradePlan } from "./upgrade-planner.mjs?v=2026-08-08-loadout-element-lock";
 import { applyWeaponStyleProfile, defaultWeaponStyleProfile, hasWeaponStyleBonus, isRiftborneMaterial, monsterHasRiftborne, normalizeWeaponStyleProfile, weaponSupportsStyle } from "./weapon-style.mjs?v=2026-08-08-loadout-element-lock";
@@ -31,6 +31,7 @@ const FAVORITES_STORAGE_KEY = "mhnow-strategy-planner-favorite-gear";
 const DRIFTSMELT_STORAGE_KEY = "mhnow-strategy-planner-driftsmelt-skills";
 const WEAPON_STYLE_STORAGE_KEY = "mhnow-strategy-planner-weapon-styles";
 const GITHUB_SYNC_STORAGE_KEY = "mhnow-strategy-planner-github-sync";
+const PROFILE_META_STORAGE_KEY = "mhnow-strategy-planner-profile-meta";
 const { materialById, monsterById, gearById } = createIndexes(GAME_DATA);
 const page = document.body.dataset.page ?? "home";
 const routeParams = new URLSearchParams(window.location.search);
@@ -57,6 +58,7 @@ const state = {
   favoriteGearIds: loadFavoriteGearIds(),
   driftsmeltSkillPools: loadDriftsmeltSkillPools(),
   weaponStyleProfiles: loadWeaponStyleProfiles(),
+  profileMeta: loadProfileMeta(),
   githubSync: loadGithubSyncSettings(),
   loadoutDriftsmeltSelections: {},
   openDriftsmeltPoolIds: new Set(),
@@ -81,7 +83,9 @@ const elements = {
   githubCreate: document.querySelector("#github-sync-create"),
   githubSave: document.querySelector("#github-sync-save"),
   githubLoad: document.querySelector("#github-sync-load"),
+  githubCheck: document.querySelector("#github-sync-check"),
   githubFeedback: document.querySelector("#github-sync-feedback"),
+  githubSyncStatus: document.querySelector("#github-sync-status"),
   featuredTarget: document.querySelector("#featured-target"),
   homeOutlook: document.querySelector("#home-outlook"),
   plannerBrief: document.querySelector("#planner-brief"),
@@ -145,6 +149,7 @@ function init() {
   populatePlannerControls();
   populateCatalogueFilters();
   populateGithubSyncControls();
+  renderGithubSyncStatus();
   wireEvents();
 
   if (page === "home") {
@@ -245,6 +250,9 @@ function wireEvents() {
   elements.githubCreate?.addEventListener("click", createGithubCloudSlot);
   elements.githubSave?.addEventListener("click", saveProfileToGithub);
   elements.githubLoad?.addEventListener("click", loadProfileFromGithub);
+  elements.githubCheck?.addEventListener("click", () => {
+    checkGithubCloudStatus();
+  });
   elements.githubToken?.addEventListener("change", saveGithubSyncDraftFromInputs);
   elements.githubGistId?.addEventListener("change", saveGithubSyncDraftFromInputs);
   elements.githubRemember?.addEventListener("change", saveGithubSyncDraftFromInputs);
@@ -567,9 +575,9 @@ async function importProfileFile(event) {
   if (!file) return;
 
   try {
-    const profile = parseProfileExport(await file.text());
+    const payload = parseProfileExportPayload(await file.text());
     if (!window.confirm("Import this profile and replace the current browser's Field Kit data?")) return;
-    applyImportedProfile(profile);
+    applyImportedProfile(payload.profile, { importedAt: payload.exportedAt });
     setProfileFeedback("Profile imported. Your forged gear, upgrades, Driftsmelt pools, and loadouts are ready.", "success");
   } catch (error) {
     setProfileFeedback(error instanceof Error ? error.message : "The profile could not be imported.", "error");
@@ -578,7 +586,7 @@ async function importProfileFile(event) {
   }
 }
 
-function applyImportedProfile(profile) {
+function applyImportedProfile(profile, { importedAt = new Date().toISOString() } = {}) {
   const knownGearIds = new Set([...GAME_DATA.weapons, ...GAME_DATA.armor].map((gear) => gear.id));
   const armorIds = new Set(GAME_DATA.armor.map((gear) => gear.id));
   state.ownedGearIds = new Set(Array.isArray(profile.ownedGearIds) ? profile.ownedGearIds.filter((id) => knownGearIds.has(id)) : []);
@@ -599,6 +607,7 @@ function applyImportedProfile(profile) {
   persistSavedLoadouts();
   persistDriftsmeltSkillPools();
   persistWeaponStyleProfiles();
+  setProfileUpdatedAt(importedAt);
   renderCollectionStatus();
   renderCurrentPage();
 }
@@ -653,21 +662,69 @@ function currentProfileData() {
 }
 
 function currentProfileExport() {
-  return createProfileExport(currentProfileData());
+  return createProfileExport(currentProfileData(), state.profileMeta.lastUpdatedAt || new Date().toISOString());
+}
+
+function loadProfileMeta() {
+  try {
+    const raw = localStorage.getItem(PROFILE_META_STORAGE_KEY);
+    if (!raw) return { lastUpdatedAt: "" };
+    const parsed = JSON.parse(raw);
+    return {
+      lastUpdatedAt: typeof parsed?.lastUpdatedAt === "string" ? parsed.lastUpdatedAt : "",
+    };
+  } catch {
+    return { lastUpdatedAt: "" };
+  }
+}
+
+function persistProfileMeta() {
+  localStorage.setItem(PROFILE_META_STORAGE_KEY, JSON.stringify({
+    lastUpdatedAt: state.profileMeta.lastUpdatedAt || "",
+  }));
+}
+
+function setProfileUpdatedAt(timestamp = new Date().toISOString()) {
+  state.profileMeta = {
+    ...state.profileMeta,
+    lastUpdatedAt: timestamp,
+  };
+  persistProfileMeta();
+  renderGithubSyncStatus();
 }
 
 function loadGithubSyncSettings() {
   try {
     const raw = localStorage.getItem(GITHUB_SYNC_STORAGE_KEY);
-    if (!raw) return { token: "", gistId: "", rememberToken: false };
+    if (!raw) return {
+      token: "",
+      gistId: "",
+      rememberToken: false,
+      cloudExportedAt: "",
+      cloudCheckedAt: "",
+      cloudGistUpdatedAt: "",
+      cloudHtmlUrl: "",
+    };
     const parsed = JSON.parse(raw);
     return {
       token: typeof parsed?.token === "string" ? parsed.token : "",
       gistId: typeof parsed?.gistId === "string" ? parsed.gistId : "",
       rememberToken: Boolean(parsed?.rememberToken),
+      cloudExportedAt: typeof parsed?.cloudExportedAt === "string" ? parsed.cloudExportedAt : "",
+      cloudCheckedAt: typeof parsed?.cloudCheckedAt === "string" ? parsed.cloudCheckedAt : "",
+      cloudGistUpdatedAt: typeof parsed?.cloudGistUpdatedAt === "string" ? parsed.cloudGistUpdatedAt : "",
+      cloudHtmlUrl: typeof parsed?.cloudHtmlUrl === "string" ? parsed.cloudHtmlUrl : "",
     };
   } catch {
-    return { token: "", gistId: "", rememberToken: false };
+    return {
+      token: "",
+      gistId: "",
+      rememberToken: false,
+      cloudExportedAt: "",
+      cloudCheckedAt: "",
+      cloudGistUpdatedAt: "",
+      cloudHtmlUrl: "",
+    };
   }
 }
 
@@ -676,24 +733,166 @@ function persistGithubSyncSettings() {
     gistId: state.githubSync.gistId ?? "",
     rememberToken: Boolean(state.githubSync.rememberToken),
     token: state.githubSync.rememberToken ? (state.githubSync.token ?? "") : "",
+    cloudExportedAt: state.githubSync.cloudExportedAt ?? "",
+    cloudCheckedAt: state.githubSync.cloudCheckedAt ?? "",
+    cloudGistUpdatedAt: state.githubSync.cloudGistUpdatedAt ?? "",
+    cloudHtmlUrl: state.githubSync.cloudHtmlUrl ?? "",
   };
   localStorage.setItem(GITHUB_SYNC_STORAGE_KEY, JSON.stringify(payload));
 }
 
 function saveGithubSyncDraftFromInputs() {
   if (!elements.githubToken || !elements.githubGistId) return;
+  const nextGistId = elements.githubGistId.value.trim();
+  const gistChanged = nextGistId !== (state.githubSync.gistId ?? "");
   state.githubSync = {
+    ...state.githubSync,
     token: elements.githubToken.value.trim(),
-    gistId: elements.githubGistId.value.trim(),
+    gistId: nextGistId,
     rememberToken: elements.githubRemember?.checked ?? false,
   };
+  if (gistChanged) {
+    state.githubSync.cloudExportedAt = "";
+    state.githubSync.cloudCheckedAt = "";
+    state.githubSync.cloudGistUpdatedAt = "";
+    state.githubSync.cloudHtmlUrl = "";
+  }
   persistGithubSyncSettings();
+  renderGithubSyncStatus();
 }
 
 function setGithubSyncFeedback(message, type) {
   if (!elements.githubFeedback) return;
   elements.githubFeedback.textContent = message;
   elements.githubFeedback.dataset.state = type;
+}
+
+function recordGithubCloudSnapshot({ exportedAt = "", gistUpdatedAt = "", htmlUrl = "" } = {}) {
+  state.githubSync = {
+    ...state.githubSync,
+    cloudExportedAt: exportedAt || "",
+    cloudCheckedAt: new Date().toISOString(),
+    cloudGistUpdatedAt: gistUpdatedAt || "",
+    cloudHtmlUrl: htmlUrl || state.githubSync.cloudHtmlUrl || "",
+  };
+  persistGithubSyncSettings();
+  renderGithubSyncStatus();
+}
+
+function preferredCloudTimestamp() {
+  return state.githubSync.cloudExportedAt || state.githubSync.cloudGistUpdatedAt || "";
+}
+
+function parseTimestamp(value) {
+  if (!value) return Number.NaN;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? Number.NaN : parsed;
+}
+
+function compareTimestamps(left, right) {
+  const leftTime = parseTimestamp(left);
+  const rightTime = parseTimestamp(right);
+  if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) return 0;
+  if (leftTime === rightTime) return 0;
+  return leftTime > rightTime ? 1 : -1;
+}
+
+function formatSyncTimestamp(value) {
+  const parsed = parseTimestamp(value);
+  if (Number.isNaN(parsed)) return "Unknown";
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(parsed));
+}
+
+function renderGithubSyncStatus() {
+  if (!elements.githubSyncStatus) return;
+
+  const localUpdatedAt = state.profileMeta.lastUpdatedAt || "";
+  const cloudUpdatedAt = preferredCloudTimestamp();
+  const gistId = state.githubSync.gistId?.trim();
+  let verdict = { tone: "muted", label: "No cloud slot yet", detail: "Create or connect a Gist to compare timestamps across devices." };
+
+  if (gistId && !cloudUpdatedAt) {
+    verdict = { tone: "warn", label: "Cloud not checked yet", detail: "Use Check cloud status before deciding whether to save or load." };
+  } else if (cloudUpdatedAt && !localUpdatedAt) {
+    verdict = { tone: "warn", label: "Local timestamp missing", detail: "Your current browser data predates sync tracking. The next save will stamp it." };
+  } else if (localUpdatedAt && cloudUpdatedAt) {
+    const comparison = compareTimestamps(localUpdatedAt, cloudUpdatedAt);
+    if (comparison > 0) {
+      verdict = { tone: "good", label: "Local is newer", detail: "This browser has the latest known profile snapshot." };
+    } else if (comparison < 0) {
+      verdict = { tone: "warn", label: "Cloud is newer", detail: "GitHub has a newer snapshot than this browser right now." };
+    } else {
+      verdict = { tone: "good", label: "In sync", detail: "Local and cloud snapshots match." };
+    }
+  }
+
+  const gistLink = state.githubSync.cloudHtmlUrl
+    ? `<a href="${state.githubSync.cloudHtmlUrl}" target="_blank" rel="noreferrer">Open Gist</a>`
+    : "";
+
+  elements.githubSyncStatus.innerHTML = `
+    <div class="cloud-sync-status-card">
+      <div class="cloud-sync-status-head">
+        <div>
+          <p class="eyebrow">Sync status</p>
+          <h3>${verdict.label}</h3>
+          <p>${verdict.detail}</p>
+        </div>
+        <span class="sync-status-pill sync-status-${verdict.tone}">${verdict.label}</span>
+      </div>
+      <div class="cloud-sync-status-grid">
+        <span><small>Local profile</small><b>${localUpdatedAt ? formatSyncTimestamp(localUpdatedAt) : "Not tracked yet"}</b></span>
+        <span><small>Cloud profile</small><b>${cloudUpdatedAt ? formatSyncTimestamp(cloudUpdatedAt) : "Not checked yet"}</b></span>
+        <span><small>Last cloud check</small><b>${state.githubSync.cloudCheckedAt ? formatSyncTimestamp(state.githubSync.cloudCheckedAt) : "Never"}</b></span>
+        <span><small>Connected Gist</small><b>${gistId || "None"} ${gistLink}</b></span>
+      </div>
+    </div>
+  `;
+}
+
+async function checkGithubCloudStatus({ quiet = false } = {}) {
+  saveGithubSyncDraftFromInputs();
+  if (!state.githubSync.token) {
+    if (!quiet) setGithubSyncFeedback("Enter a GitHub personal access token first.", "error");
+    return null;
+  }
+  if (!state.githubSync.gistId) {
+    if (!quiet) setGithubSyncFeedback("Enter the GitHub Gist ID for your saved profile.", "error");
+    return null;
+  }
+
+  try {
+    if (!quiet) {
+      setGithubSyncFeedback("Checking your GitHub cloud profile status...", "success");
+    }
+    const result = await loadProfileGist({
+      token: state.githubSync.token,
+      gistId: state.githubSync.gistId,
+    });
+    recordGithubCloudSnapshot({
+      exportedAt: result.exportedAt,
+      gistUpdatedAt: result.gistUpdatedAt,
+      htmlUrl: result.htmlUrl,
+    });
+    if (!quiet) {
+      const cloudUpdatedAt = preferredCloudTimestamp();
+      setGithubSyncFeedback(
+        cloudUpdatedAt
+          ? `Cloud profile checked. Latest GitHub snapshot: ${formatSyncTimestamp(cloudUpdatedAt)}.`
+          : "Cloud profile checked. This Gist is connected, but its profile timestamp is missing.",
+        "success",
+      );
+    }
+    return result;
+  } catch (error) {
+    if (!quiet) {
+      setGithubSyncFeedback(error instanceof Error ? error.message : "Could not check the GitHub cloud profile.", "error");
+    }
+    return null;
+  }
 }
 
 async function createGithubCloudSlot() {
@@ -704,14 +903,20 @@ async function createGithubCloudSlot() {
   }
 
   try {
+    const exportData = currentProfileExport();
     setGithubSyncFeedback("Creating your private GitHub Gist cloud slot...", "success");
     const result = await createProfileGist({
       token: state.githubSync.token,
-      exportData: currentProfileExport(),
+      exportData,
     });
     state.githubSync.gistId = result.gistId;
     persistGithubSyncSettings();
     populateGithubSyncControls();
+    recordGithubCloudSnapshot({
+      exportedAt: exportData.exportedAt,
+      gistUpdatedAt: result.updatedAt,
+      htmlUrl: result.htmlUrl,
+    });
     setGithubSyncFeedback(`Cloud slot created. Gist ${result.gistId} is ready for this planner profile.`, "success");
   } catch (error) {
     setGithubSyncFeedback(error instanceof Error ? error.message : "Could not create the GitHub cloud slot.", "error");
@@ -730,11 +935,27 @@ async function saveProfileToGithub() {
   }
 
   try {
+    const cloudStatus = await checkGithubCloudStatus({ quiet: true });
+    if (cloudStatus && compareTimestamps(preferredCloudTimestamp(), state.profileMeta.lastUpdatedAt) > 0) {
+      const proceed = window.confirm(
+        `GitHub looks newer than this browser.\n\nCloud: ${formatSyncTimestamp(preferredCloudTimestamp())}\nLocal: ${state.profileMeta.lastUpdatedAt ? formatSyncTimestamp(state.profileMeta.lastUpdatedAt) : "Not tracked yet"}\n\nSave anyway and overwrite the cloud profile?`,
+      );
+      if (!proceed) {
+        setGithubSyncFeedback("Cloud save canceled. The newer GitHub snapshot was left untouched.", "success");
+        return;
+      }
+    }
+    const exportData = currentProfileExport();
     setGithubSyncFeedback("Saving your Field Kit profile to GitHub...", "success");
-    await updateProfileGist({
+    const result = await updateProfileGist({
       token: state.githubSync.token,
       gistId: state.githubSync.gistId,
-      exportData: currentProfileExport(),
+      exportData,
+    });
+    recordGithubCloudSnapshot({
+      exportedAt: exportData.exportedAt,
+      gistUpdatedAt: result.updatedAt,
+      htmlUrl: result.htmlUrl,
     });
     setGithubSyncFeedback(`Cloud save complete. Gist ${state.githubSync.gistId} now has your latest loadouts and gear progress.`, "success");
   } catch (error) {
@@ -755,15 +976,22 @@ async function loadProfileFromGithub() {
 
   try {
     setGithubSyncFeedback("Loading your Field Kit profile from GitHub...", "success");
-    const result = await loadProfileGist({
-      token: state.githubSync.token,
-      gistId: state.githubSync.gistId,
-    });
-    if (!window.confirm("Load the GitHub cloud profile and replace the current browser's Field Kit data?")) {
+    const result = await checkGithubCloudStatus({ quiet: true });
+    if (!result) return;
+    const cloudUpdatedAt = result.exportedAt || result.gistUpdatedAt || "";
+    if (compareTimestamps(state.profileMeta.lastUpdatedAt, cloudUpdatedAt) > 0) {
+      const proceed = window.confirm(
+        `This browser looks newer than GitHub.\n\nLocal: ${formatSyncTimestamp(state.profileMeta.lastUpdatedAt)}\nCloud: ${cloudUpdatedAt ? formatSyncTimestamp(cloudUpdatedAt) : "Unknown"}\n\nLoad anyway and replace this browser's newer data?`,
+      );
+      if (!proceed) {
+        setGithubSyncFeedback("Cloud load canceled. Your newer local browser data was kept.", "success");
+        return;
+      }
+    } else if (!window.confirm("Load the GitHub cloud profile and replace the current browser's Field Kit data?")) {
       setGithubSyncFeedback("Cloud profile loaded, but the current browser data was left unchanged.", "success");
       return;
     }
-    applyImportedProfile(result.profile);
+    applyImportedProfile(result.profile, { importedAt: result.exportedAt || result.gistUpdatedAt });
     setGithubSyncFeedback(`Cloud load complete. Gist ${state.githubSync.gistId} restored this browser's profile.`, "success");
   } catch (error) {
     setGithubSyncFeedback(error instanceof Error ? error.message : "Could not load the profile from GitHub.", "error");
@@ -2103,34 +2331,42 @@ function loadWeaponStyleProfiles() {
 
 function persistOwnedGearIds() {
   localStorage.setItem(OWNED_STORAGE_KEY, JSON.stringify([...state.ownedGearIds]));
+  setProfileUpdatedAt();
 }
 
 function persistFavoriteGearIds() {
   localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify([...state.favoriteGearIds]));
+  setProfileUpdatedAt();
 }
 
 function persistGearProgress() {
   localStorage.setItem(GEAR_PROGRESS_STORAGE_KEY, JSON.stringify(state.gearProgress));
+  setProfileUpdatedAt();
 }
 
 function persistDriftsmeltSkillPools() {
   localStorage.setItem(DRIFTSMELT_STORAGE_KEY, JSON.stringify(state.driftsmeltSkillPools));
+  setProfileUpdatedAt();
 }
 
 function persistWeaponStyleProfiles() {
   localStorage.setItem(WEAPON_STYLE_STORAGE_KEY, JSON.stringify(state.weaponStyleProfiles));
+  setProfileUpdatedAt();
 }
 
 function persistTargetMonsterId() {
   localStorage.setItem(TARGET_STORAGE_KEY, state.targetMonsterId);
+  setProfileUpdatedAt();
 }
 
 function persistTargetStars() {
   localStorage.setItem(TARGET_STARS_STORAGE_KEY, String(state.targetStars));
+  setProfileUpdatedAt();
 }
 
 function persistSavedLoadouts() {
   localStorage.setItem(LOADOUTS_STORAGE_KEY, JSON.stringify(state.savedLoadouts));
+  setProfileUpdatedAt();
 }
 
 function currentLoadoutWeaponStyleProfile(weaponId) {
