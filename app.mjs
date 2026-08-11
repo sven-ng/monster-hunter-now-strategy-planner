@@ -4,7 +4,7 @@ import { DRIFTSMELT_SKILLS, MAX_DRIFTSMELT_SKILLS_PER_ARMOR, normalizeDriftsmelt
 import { createLoadout, createLoadoutFromBuild, evaluateLoadout, evaluateSavedLoadouts, hydrateLoadout, replaceLoadout, updateLoadoutGearProgress } from "./loadouts.mjs?v=2026-08-08-loadout-element-lock";
 import { createProfileExport, parseProfileExport } from "./profile-transfer.mjs?v=2026-08-08-loadout-element-lock";
 import { createProfileGist, loadProfileGist, updateProfileGist } from "./gist-sync.mjs?v=2026-08-08-loadout-element-lock";
-import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions, skillMetadata } from "./skill-utils.mjs?v=2026-08-09-weapon-specific-focus";
+import { canonicalSkillName, normalizeSkills, skillDescription, skillDescriptions, skillMetadata } from "./skill-utils.mjs?v=2026-08-11-ranking-reasons";
 import { buildUpgradePlan } from "./upgrade-planner.mjs?v=2026-08-08-loadout-element-lock";
 import { applyWeaponStyleProfile, defaultWeaponStyleProfile, hasWeaponStyleBonus, isRiftborneMaterial, monsterHasRiftborne, normalizeWeaponStyleProfile, weaponSupportsStyle } from "./weapon-style.mjs?v=2026-08-08-loadout-element-lock";
 import {
@@ -19,7 +19,7 @@ import {
   recommendBuilds,
   evaluateLoadoutFocusBuild,
   recommendLoadoutFocusBuilds,
-} from "./planner.mjs?v=2026-08-09-weapon-specific-focus";
+} from "./planner.mjs?v=2026-08-11-ranking-reasons";
 
 const OWNED_STORAGE_KEY = "mhnow-strategy-planner-owned-gear";
 const GEAR_PROGRESS_STORAGE_KEY = "mhnow-strategy-planner-gear-progress";
@@ -1490,6 +1490,7 @@ function loadoutSuggestionCard(build, index, baselineStats) {
     comparisonToken("Affinity", comparison.affinityDelta, "%"),
   ].join("");
   const topSkills = aggregateSkills([build.weapon, ...build.armor]).slice(0, 6);
+  const reasonMarkup = focusReasonMarkup(build.focusReasons);
   return `
     <article class="build-card ${index === 0 ? "best-build" : ""}">
       <div class="build-hero">${imageMarkup(build.weapon, "build-weapon-image")}
@@ -1501,6 +1502,7 @@ function loadoutSuggestionCard(build, index, baselineStats) {
         <div class="damage-breakdown"><span>${formatRawBreakdown(build.weapon.attack, damage)}</span><span>${formatElementBreakdown(damage)}</span><span>${damage.defense} defense</span></div>
       </div>
       <div class="suggestion-comparison-grid">${comparisonTokens}</div>
+      ${reasonMarkup}
       <div class="summary-skill-panel compact-panel"><p class="eyebrow">Total skills</p>${skillChips(topSkills)}</div>
       <button class="save-suggestion" type="button" data-save-loadout-suggestion="${index}">Save as new loadout</button>
       <div class="loadout-list"><p>Suggested gear swap</p><ul>${build.armor.map((piece) => `<li>${imageMarkup(piece, "loadout-icon")}<span>${piece.part}</span>${piece.name}</li>`).join("")}</ul></div>
@@ -1532,6 +1534,7 @@ function loadoutBenchmarkCard(build, topSuggestion, baselineStats) {
   ].join("");
   const topSkills = aggregateSkills([build.weapon, ...build.armor]).slice(0, 6);
   const baselineReference = Math.round(build.focusScore);
+  const reasonMarkup = focusReasonMarkup(build.focusReasons);
   const scoreContext = topSuggestion
     ? "compared against the top suggestion"
     : baselineStats.referenceDamage === damage.referenceDamage
@@ -1548,11 +1551,27 @@ function loadoutBenchmarkCard(build, topSuggestion, baselineStats) {
         <div class="damage-breakdown"><span>${formatRawBreakdown(build.weapon.attack, damage)}</span><span>${formatElementBreakdown(damage)}</span><span>${damage.defense} defense</span></div>
       </div>
       <div class="suggestion-comparison-grid">${comparisonTokens}</div>
+      ${reasonMarkup}
       <div class="summary-skill-panel compact-panel"><p class="eyebrow">Total skills</p>${skillChips(topSkills)}</div>
       <a class="secondary-action inline-link-action" href="loadout-editor.html?id=${encodeURIComponent(loadoutIdFromRoute ?? state.activeLoadoutId ?? "")}">Edit this build</a>
       <div class="loadout-list"><p>Equipped gear</p><ul>${build.armor.map((piece) => `<li>${imageMarkup(piece, "loadout-icon")}<span>${piece.part}</span>${piece.name}</li>`).join("")}</ul></div>
     </article>
   `;
+}
+
+function focusReasonMarkup(reasons) {
+  const positives = reasons?.positives ?? [];
+  const cautions = reasons?.cautions ?? [];
+  if (!positives.length && !cautions.length) {
+    return "";
+  }
+
+  const lines = [
+    ...positives.map((reason) => `<li class="focus-reason positive">${reason}</li>`),
+    ...cautions.map((reason) => `<li class="focus-reason caution">${reason}</li>`),
+  ].join("");
+
+  return `<div class="focus-reason-panel"><p class="eyebrow">Why this ranked here</p><ul class="focus-reason-list">${lines}</ul></div>`;
 }
 
 function comparisonToken(label, delta, suffix = "") {

@@ -276,6 +276,12 @@ button.monster-focus-card:hover, button.monster-focus-card:focus-visible { borde
 .damage-breakdown span { color: #cce4e3; font-size: 0.66rem; }
 .focus-benchmark-banner { display: grid; grid-template-columns: auto auto 1fr; gap: 14px; align-items: center; padding: 16px 18px; margin-bottom: 18px; border: 1px solid rgba(118, 228, 209, 0.22); border-radius: 18px; background: rgba(16, 47, 55, 0.62); }
 .suggestion-comparison-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 12px 16px 0; }
+.focus-reason-panel { margin: 12px 16px 0; padding: 12px 14px; border: 1px solid rgba(118, 228, 209, 0.12); border-radius: 13px; background: rgba(5, 18, 24, 0.28); }
+.focus-reason-list { display: grid; gap: 7px; margin: 8px 0 0; padding: 0; list-style: none; }
+.focus-reason { position: relative; padding-left: 16px; color: #d4e8e9; font-size: 0.72rem; line-height: 1.45; }
+.focus-reason::before { content: ""; position: absolute; left: 0; top: 0.46rem; width: 7px; height: 7px; border-radius: 999px; }
+.focus-reason.positive::before { background: var(--aqua); box-shadow: 0 0 0 3px rgba(118, 228, 209, 0.12); }
+.focus-reason.caution::before { background: var(--sun); box-shadow: 0 0 0 3px rgba(228, 173, 76, 0.12); }
 .comparison-token { display: grid; gap: 3px; padding: 10px 12px; border: 1px solid rgba(118, 228, 209, 0.12); border-radius: 12px; background: rgba(118, 228, 209, 0.05); }
 .comparison-token small { color: var(--muted); font-size: 0.62rem; letter-spacing: 0.06em; text-transform: uppercase; }
 .comparison-token b { font-size: 0.96rem; }

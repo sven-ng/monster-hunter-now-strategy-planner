@@ -600,6 +600,14 @@ export function recommendLoadoutFocusBuilds({
         focusLabel: loadoutFocusLabel(normalizedFocus),
         ownedCount: countOwnedGear(ownedGearIds, [weapon, ...armorWithDriftsmelt]),
         baselineComparison: compareBuildAgainstBaseline(damage, baselineBuild, assumeWeakPoint),
+        focusReasons: explainFocusBuild({
+          weapon,
+          armor: armorWithDriftsmelt,
+          damage,
+          focus: normalizedFocus,
+          baselineBuild,
+          assumeWeakPoint,
+        }),
         ...summary,
       });
     }
@@ -643,6 +651,14 @@ export function evaluateLoadoutFocusBuild(build, {
     focus: normalizedFocus,
     focusScore,
     focusLabel: loadoutFocusLabel(normalizedFocus),
+    focusReasons: explainFocusBuild({
+      weapon: build.weapon,
+      armor: build.armor,
+      damage,
+      focus: normalizedFocus,
+      baselineBuild,
+      assumeWeakPoint,
+    }),
     ...summary,
   };
 }
@@ -859,6 +875,71 @@ function scoreLoadoutFocusBuild({ weapon, armor, damage, summary, focus, baselin
     return skillTotal * 14 + damage.rawAttack * 0.75 + damage.potentialElement * 0.75 + damage.defense * 0.05 - wastedSkillPenalty;
   }
   return damage.rawAttack * 2.6 + damage.expectedRaw * 1.35 + damage.potentialElement * 0.3 + skillTotal * 6 + damage.defense * 0.04 - wastedSkillPenalty;
+}
+
+function explainFocusBuild({ weapon, armor, damage, focus, baselineBuild, assumeWeakPoint }) {
+  const aggregatedSkills = aggregateSkills([weapon, ...armor]);
+  const preferredElement = preferredLoadoutElement(baselineBuild, weapon, focus);
+  const positives = [];
+  const cautions = [];
+
+  if (focus === "element" && preferredElement && weapon.element?.type === preferredElement.replace(" Attack", "")) {
+    positives.push(`${weapon.element.type} element stayed on-focus`);
+  }
+  if (focus === "raw" && damage.attackEfficacyLevel) {
+    positives.push(`Attack Efficacy boosts raw by ${Math.round(damage.attackEfficacyMultiplier * 100)}%`);
+  }
+  if (damage.rawSkillBonus || damage.advancedRawSkillBonus) {
+    positives.push(`Attack Boost package adds ${damage.rawSkillBonus + damage.advancedRawSkillBonus} raw`);
+  }
+  if (damage.elementPercentSkillBonuses?.length) {
+    for (const bonus of damage.elementPercentSkillBonuses) {
+      positives.push(`${bonus.name} adds ${Math.round(bonus.multiplier * 100)}% ${weapon.element?.type?.toLowerCase() ?? "element"}`);
+    }
+  }
+
+  const weightedSkills = aggregatedSkills
+    .map((skill) => ({
+      name: skill.name,
+      score: focusedSkillWeight(
+        skill.name,
+        skill.level,
+        focus,
+        preferredElement,
+        assumeWeakPoint,
+        weapon.type,
+      ),
+      overflow: overflowSkillLevels(skill.name, skill.level),
+    }))
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score);
+
+  for (const item of weightedSkills.slice(0, 3)) {
+    if (!positives.some((reason) => reason.toLowerCase().includes(item.name.toLowerCase()))) {
+      positives.push(`${item.name} is heavily weighted for ${weapon.type}`);
+    }
+  }
+
+  for (const skill of aggregatedSkills) {
+    const overflow = overflowSkillLevels(skill.name, skill.level);
+    const cap = SKILL_LEVEL_CAPS[skill.name];
+    if (overflow > 0 && cap) {
+      cautions.push(`${skill.name} is overcapped at Lv.${skill.level} and wastes ${overflow} level${overflow === 1 ? "" : "s"}`);
+    }
+  }
+
+  if (focus !== "skills" && damage.defense >= 540) {
+    cautions.push("Defense helps less than direct damage for this focus");
+  }
+
+  if (focus === "element" && weapon.element?.type && preferredElement && weapon.element.type !== preferredElement.replace(" Attack", "")) {
+    cautions.push(`Weapon element drifted away from ${preferredElement.replace(" Attack", "")}`);
+  }
+
+  return {
+    positives: positives.slice(0, 3),
+    cautions: cautions.slice(0, 2),
+  };
 }
 
 function focusedSkillWeight(name, level, focus, preferredElement, assumeWeakPoint, weaponType = "") {

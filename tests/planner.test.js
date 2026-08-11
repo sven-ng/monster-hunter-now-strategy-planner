@@ -334,6 +334,39 @@ test("light bowgun focus rewards reload and recoil support skills", () => {
   assert.ok(optimized.focusScore > generic.focusScore);
 });
 
+test("focus evaluation explains weapon-specific strengths and overcap waste", () => {
+  const build = {
+    weapon: {
+      id: "reason-db",
+      name: "Reason Fangs",
+      type: "Dual Blades",
+      grade: 10,
+      level: 5,
+      attack: 1600,
+      affinity: 0,
+      element: { type: "Ice", value: 700 },
+      skills: [],
+      styleProfile: null,
+    },
+    armor: [
+      { id: "reason-head", part: "Head", defense: 120, skills: [{ name: "Burst", level: 5 }] },
+      { id: "reason-chest", part: "Chest", defense: 120, skills: [{ name: "Attack Boost", level: 4 }] },
+      { id: "reason-arms", part: "Arms", defense: 120, skills: [{ name: "Attack Boost", level: 5 }] },
+      { id: "reason-waist", part: "Waist", defense: 120, skills: [] },
+      { id: "reason-legs", part: "Legs", defense: 120, skills: [] },
+    ],
+  };
+
+  const result = evaluateLoadoutFocusBuild(build, {
+    focus: "skills",
+    baselineBuild: build,
+    assumeWeakPoint: false,
+  });
+
+  assert.ok(result.focusReasons.positives.some((reason) => /Burst|Dual Blades/i.test(reason)));
+  assert.ok(result.focusReasons.cautions.some((reason) => /Attack Boost is overcapped/i.test(reason)));
+});
+
 test("monster series links resolve to its official gear", () => {
   const usage = getMonsterMaterialUsage("greatjagras", GAME_DATA);
   assert.ok(usage.length > 0);
